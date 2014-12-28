@@ -2,10 +2,13 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE FlexibleContexts #-}
-module Text.Haiji where
+module Text.Haiji
+    ( render
+    , Rendering(..)
+    , Template
+    ) where
 
 import Text.Haiji.Types
-import Data.Convertible
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as TL
 
@@ -26,12 +29,5 @@ escape HTML = T.concatMap replace where
 
 type Template require = (T.Text -> T.Text) -> TLDict require -> TL.Text
 
-sampleDict :: TLDict '["foo" :-> T.Text, "bar" :-> Int]
-sampleDict = Ext (Value "<script></script>") $ Ext (Value 2) $ Empty
-
-sampleTmpl :: Template '[ "foo" :-> T.Text ]
-sampleTmpl esc x = TL.fromChunks ["<h1>", esc $ retrieve x (Key :: Key "foo"), "</h1>" ]
-
-render :: Convertible (TLDict super) (TLDict sub) => Rendering -> TLDict super -> Template sub -> TL.Text
-render rendering dict template = template esc (convert dict) where
-    esc = escape rendering
+render :: Rendering -> TLDict s -> Template s -> TL.Text
+render rendering dict template = template (escape rendering) dict
