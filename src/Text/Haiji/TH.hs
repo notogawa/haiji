@@ -1,7 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
-module Text.Haiji.TH where
+module Text.Haiji.TH ( haiji, haijiFile ) where
 
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote
@@ -19,21 +19,25 @@ haiji = QuasiQuoter { quoteExp = haijiExp
                     , quoteDec = undefined
                     }
 
-haijiFile :: FilePath -> Q Exp
+haijiFile :: FilePath -> ExpQ
 haijiFile file = runIO (LT.readFile file) >>= haijiExp . LT.unpack
 
-haijiExp :: String -> Q Exp
-haijiExp str = case parseOnly parser $ T.pack str of
-                 Left err -> error err
-                 Right asts -> do
-                   esc <- newName "esc"
-                   dict <- newName "dict"
-                   [e| \ $(varP esc) $(varP dict) -> LT.fromChunks $(listE $ map (haijiAST esc dict) asts) |]
+haijiExp :: String -> ExpQ
+haijiExp = either error haijiASTs . parseOnly parser . T.pack
 
+haijiASTs :: [AST] -> ExpQ
+haijiASTs asts = do
+  esc <- newName "esc"
+  dict <- newName "dict"
+  [e| \ $(varP esc) $(varP dict) -> LT.concat $(listE $ map (haijiAST esc dict) asts) |]
 
-haijiAST esc dict (Literal l) = [e| s |] where s = T.unpack l
-haijiAST esc dict (Deref x) = [e| $(varE esc) $ $(deref dict x) |]
+haijiAST :: Name -> Name -> AST -> ExpQ
+haijiAST _esc _dict (Literal l) = [e| s |] where s = T.unpack l
+haijiAST  esc  dict (Deref x) = [e| $(varE esc) $ $(deref dict x) |]
+haijiAST  esc  dict (Condition p ts (Just fs)) = [e| (if $(deref dict p) then $(haijiASTs ts) else $(haijiASTs fs)) $(varE esc) $(varE dict) |]
+haijiAST  esc  dict (Condition p ts Nothing) = [e| (if $(deref dict p) then $(haijiASTs ts) else (\_ _ -> "")) $(varE esc) $(varE dict) |]
 
+deref :: Name -> Variable -> ExpQ
 deref dict (SimpleVariable v) = [e| retrieve $(varE dict) (Key :: Key $(litT . strTyLit $ T.unpack v)) |]
 deref dict (ObjectDotVariable v f) = [e| retrieve $(deref dict v) (Key :: Key $(litT . strTyLit $ T.unpack f)) |]
 deref dict (ArrayIndexVariable v ix) = [e| $(deref dict v) !! ix |]

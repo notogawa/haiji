@@ -9,25 +9,24 @@ module Text.Haiji
     ) where
 
 import Text.Haiji.Types
-import qualified Data.Text as T
-import qualified Data.Text.Lazy as TL
+import qualified Data.Text.Lazy as LT
 
 data Rendering = Raw
                | HTML
                  deriving (Eq, Show)
 
-escape :: Rendering -> T.Text -> T.Text
+escape :: Rendering -> LT.Text -> LT.Text
 escape Raw = id
-escape HTML = T.concatMap replace where
+escape HTML = LT.concatMap replace where
     replace '&'  = "&amp;"
     replace '\\' = "&#92;"
     replace '"'  = "&quot;"
     replace '\'' = "&#39;"
     replace '<'  = "&lt;"
     replace '>'  = "&gt;"
-    replace h    = T.singleton h
+    replace h    = LT.singleton h
 
-type Template require = (T.Text -> T.Text) -> TLDict require -> TL.Text
+type Template require = (LT.Text -> LT.Text) -> TLDict require -> LT.Text
 
-render :: Rendering -> TLDict s -> Template s -> TL.Text
+render :: Rendering -> TLDict s -> Template s -> LT.Text
 render rendering dict template = template (escape rendering) dict

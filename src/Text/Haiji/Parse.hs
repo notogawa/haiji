@@ -19,15 +19,21 @@ instance Show Variable where
 
 data AST = Literal T.Text
          | Deref Variable
+         | Condition Variable [AST] (Maybe [AST])
            deriving Eq
 
 instance Show AST where
     show (Literal l) = T.unpack l
     show (Deref v) = "{{ " ++ shows v " }}"
+    show (Condition p ts mfs) = "{% if " ++ show p ++ "%}" ++
+                                concatMap show ts ++
+                                maybe "" (\fs -> "{% else %}" ++ concatMap show fs) mfs ++
+                                "{% endif %}"
 
 parser :: Parser [AST]
 parser = many $ choice [ literalParser
                        , derefParser
+                       , conditionParser
                        ]
 
 literalParser :: Parser AST
@@ -63,3 +69,27 @@ variableParser = ident >>= variableParser' . SimpleVariable where
           char ']'
           variableParser' (ArrayIndexVariable v ix)
         _        -> fail "variableParser: invalid variable"
+
+skipSpaceTillEOL :: Parser ()
+skipSpaceTillEOL = option () $ skipWhile isHorizontalSpace >> endOfLine
+
+statement f = do
+  string "{%"
+  skipSpace
+  x <- f
+  skipSpace
+  string "%}"
+  return x
+
+conditionParser :: Parser AST
+conditionParser = do
+  cond <- statement $ string "if" >> skipSpace >> variableParser
+  skipSpaceTillEOL
+  ifbody <- parser
+  skipSpaceTillEOL
+  statement $ string "endif" <|> string "else"
+  skipSpaceTillEOL
+  elsebody <- option Nothing (fmap Just parser)
+  statement $ string "endif"
+  skipSpaceTillEOL
+  return $ Condition cond ifbody elsebody
