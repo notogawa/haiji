@@ -17,9 +17,9 @@ cabal-version:       >=1.10
 
 library
   exposed-modules:     Text.Haiji
-  other-modules:       Text.Haiji.Types
-                       Text.Haiji.Parse
+                       Text.Haiji.Types
                        Text.Haiji.TH
+  other-modules:       Text.Haiji.Parse
   -- other-extensions:
   build-depends:       base >=4.7 && <4.8
                      , text
