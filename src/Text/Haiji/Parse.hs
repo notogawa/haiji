@@ -40,7 +40,7 @@ parser :: Parser [AST]
 parser = many $ choice [ literalParser
                        , derefParser
                        , conditionParser
-                       , loopParser
+                       , foreachParser
                        , includeParser
                        ]
 
@@ -78,26 +78,20 @@ variableParser = ident >>= variableParser' . SimpleVariable where
           variableParser' (ArrayIndexVariable v ix)
         _        -> fail "variableParser: invalid variable"
 
-skipTrailingWhitespace :: Parser ()
-skipTrailingWhitespace = option () $ skipWhile isHorizontalSpace >> endOfLine
-
+statement :: Parser a -> Parser a
 statement f = (string "{%" >> skipSpace) *> f <* (skipSpace >> string "%}")
 
 conditionParser :: Parser AST
 conditionParser = do
   cond <- statement $ string "if" >> skipSpace >> variableParser
-  skipTrailingWhitespace
   ifbody <- parser
-  skipTrailingWhitespace
   statement $ string "endif" <|> string "else"
-  skipTrailingWhitespace
   elsebody <- option Nothing (fmap Just parser)
   statement $ string "endif"
-  skipTrailingWhitespace
   return $ Condition cond ifbody elsebody
 
-loopParser :: Parser AST
-loopParser = do
+foreachParser :: Parser AST
+foreachParser = do
   (x, xs) <- statement $ do
                string "for"
                skipSpace
@@ -107,10 +101,8 @@ loopParser = do
                skipSpace
                xs <- variableParser
                return (x, xs)
-  skipTrailingWhitespace
   loopbody <- parser
   statement $ string "endfor"
-  skipTrailingWhitespace
   return $ Foreach x xs loopbody
 
 includeParser :: Parser AST
