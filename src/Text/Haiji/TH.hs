@@ -43,6 +43,7 @@ haijiAST  esc  dict (Condition p ts Nothing) =
     [e| (if $(deref dict p) then $(haijiASTs ts) else (\_ _ -> "")) $(varE esc) $(varE dict) |]
 haijiAST  esc  dict (Foreach k xs body) =
     [e| LT.concat $ map (\x -> $(haijiASTs body) $(varE esc) (add x (Key :: Key $(litT . strTyLit $ T.unpack k)) $(varE dict))) $(deref dict xs)|]
+haijiAST  esc  dict (Include file) = [e| $(haijiFile file) $(varE esc) $(varE dict) |]
 
 deref :: Name -> Variable -> ExpQ
 deref dict (SimpleVariable v) = [e| retrieve $(varE dict) (Key :: Key $(litT . strTyLit $ T.unpack v)) |]

@@ -21,6 +21,7 @@ data AST = Literal T.Text
          | Deref Variable
          | Condition Variable [AST] (Maybe [AST])
          | Foreach T.Text Variable [AST]
+         | Include FilePath
            deriving Eq
 
 instance Show AST where
@@ -33,12 +34,14 @@ instance Show AST where
     show (Foreach x xs asts) = "{% for " ++ show x ++ " in " ++ show xs ++ "%}" ++
                                concatMap show asts ++
                                "{% endfor %}"
+    show (Include file) = "{% include \"" ++ file ++ "\" %}"
 
 parser :: Parser [AST]
 parser = many $ choice [ literalParser
                        , derefParser
                        , conditionParser
                        , loopParser
+                       , includeParser
                        ]
 
 literalParser :: Parser AST
@@ -78,13 +81,7 @@ variableParser = ident >>= variableParser' . SimpleVariable where
 skipTrailingWhitespace :: Parser ()
 skipTrailingWhitespace = option () $ skipWhile isHorizontalSpace >> endOfLine
 
-statement f = do
-  string "{%"
-  skipSpace
-  x <- f
-  skipSpace
-  string "%}"
-  return x
+statement f = (string "{%" >> skipSpace) *> f <* (skipSpace >> string "%}")
 
 conditionParser :: Parser AST
 conditionParser = do
@@ -115,3 +112,11 @@ loopParser = do
   statement $ string "endfor"
   skipTrailingWhitespace
   return $ Foreach x xs loopbody
+
+includeParser :: Parser AST
+includeParser = statement $ do
+                  let quotedBy c = char c *> takeTill (== c) <* char c
+                  string "include"
+                  skipSpace
+                  file <- quotedBy '"' <|> quotedBy '\''
+                  return $ Include (T.unpack file)
