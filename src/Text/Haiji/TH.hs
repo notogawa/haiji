@@ -8,6 +8,7 @@ import Language.Haskell.TH.Quote
 import Data.Attoparsec.Text
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
+import qualified Data.Text.Lazy.IO as LT
 import Text.Haiji.Parse
 import Text.Haiji.Types
 
@@ -17,6 +18,9 @@ haiji = QuasiQuoter { quoteExp = haijiExp
                     , quoteType = haijiType
                     , quoteDec = undefined
                     }
+
+haijiFile :: FilePath -> Q Exp
+haijiFile file = runIO (LT.readFile file) >>= haijiExp . LT.unpack
 
 haijiExp :: String -> Q Exp
 haijiExp str = case parseOnly parser $ T.pack str of
