@@ -10,7 +10,6 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import Text.Haiji.Parse
 import Text.Haiji.Types
-import Data.Convertible
 
 haiji :: QuasiQuoter
 haiji = QuasiQuoter { quoteExp = haijiExp
@@ -27,10 +26,13 @@ haijiExp str = case parseOnly parser $ T.pack str of
                    dict <- newName "dict"
                    [e| \ $(varP esc) $(varP dict) -> LT.fromChunks $(listE $ map (haijiAST esc dict) asts) |]
 
+
 haijiAST esc dict (Literal l) = [e| s |] where s = T.unpack l
-haijiAST esc dict (Deref (SimpleVariable v)) = do
-  let symbol = litT . strTyLit $ T.unpack v
-  [e| $(varE esc) $ retrieve (convert $(varE dict) :: TLDict '[$(symbol) :-> T.Text]) (Key :: Key $(symbol)) |]
+haijiAST esc dict (Deref x) = [e| $(varE esc) $ $(deref dict x) |]
+
+deref dict (SimpleVariable v) = [e| retrieve $(varE dict) (Key :: Key $(litT . strTyLit $ T.unpack v)) |]
+deref dict (ObjectDotVariable v f) = [e| retrieve $(deref dict v) (Key :: Key $(litT . strTyLit $ T.unpack f)) |]
+deref dict (ArrayIndexVariable v ix) = [e| $(deref dict v) !! ix |]
 
 haijiType :: String -> Q Type
 haijiType = undefined

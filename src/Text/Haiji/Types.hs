@@ -21,7 +21,6 @@ import GHC.TypeLits
 import Data.Type.Bool
 import Data.Type.Equality
 import Data.Proxy
-import Data.Convertible
 
 data Key (k :: Symbol) where Key :: Key k
 
@@ -44,7 +43,7 @@ instance KnownSymbol k => Show (Key k) where
 
 class Retrieve d k v where
     retrieve :: d -> Key k -> v
-instance Retrieve (TLDict ((k :-> v) ': d)) k v where
+instance v' ~ v => Retrieve (TLDict ((k :-> v') ': d)) k v where
     retrieve (Ext (Value v) _) _ = v
 instance Retrieve (TLDict d) k v => Retrieve (TLDict (kv ': d)) k v where
     retrieve (Ext _ d) k = retrieve d k
@@ -105,13 +104,6 @@ instance Normalizable ((k :-> v2) ': s) => Normalizable ((k :-> v1) ': (k :-> v2
     normalize (Ext _ (Ext x s)) = normalize (Ext x s)
 instance (Normalize (x ': y ': d) ~ (x ': Normalize (y ': d)), Normalizable (y ': d)) => Normalizable (x ': y ': d) where
     normalize (Ext x (Ext y s)) = Ext x (normalize (Ext y s))
-
-instance Convertible (TLDict '[]) (TLDict '[]) where
-    safeConvert _ = Right Empty
-instance Convertible (TLDict super) (TLDict sub) => Convertible (TLDict (x ': super)) (TLDict sub) where
-    safeConvert (Ext _ xs) = safeConvert xs
-instance Convertible (TLDict super) (TLDict sub) => Convertible (TLDict (x ': super)) (TLDict (x ': sub)) where
-    safeConvert (Ext x xs) = fmap (Ext x) $ safeConvert xs
 
 type family Sort (xs :: [k]) :: [k] where
     Sort '[]       = '[]
