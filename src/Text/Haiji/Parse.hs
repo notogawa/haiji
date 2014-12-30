@@ -20,6 +20,7 @@ instance Show Variable where
 data AST = Literal T.Text
          | Deref Variable
          | Condition Variable [AST] (Maybe [AST])
+         | Foreach T.Text Variable [AST]
            deriving Eq
 
 instance Show AST where
@@ -29,11 +30,15 @@ instance Show AST where
                                 concatMap show ts ++
                                 maybe "" (\fs -> "{% else %}" ++ concatMap show fs) mfs ++
                                 "{% endif %}"
+    show (Foreach x xs asts) = "{% for " ++ show x ++ " in " ++ show xs ++ "%}" ++
+                               concatMap show asts ++
+                               "{% endfor %}"
 
 parser :: Parser [AST]
 parser = many $ choice [ literalParser
                        , derefParser
                        , conditionParser
+                       , loopParser
                        ]
 
 literalParser :: Parser AST
@@ -70,8 +75,8 @@ variableParser = ident >>= variableParser' . SimpleVariable where
           variableParser' (ArrayIndexVariable v ix)
         _        -> fail "variableParser: invalid variable"
 
-skipSpaceTillEOL :: Parser ()
-skipSpaceTillEOL = option () $ skipWhile isHorizontalSpace >> endOfLine
+skipTrailingWhitespace :: Parser ()
+skipTrailingWhitespace = option () $ skipWhile isHorizontalSpace >> endOfLine
 
 statement f = do
   string "{%"
@@ -84,12 +89,29 @@ statement f = do
 conditionParser :: Parser AST
 conditionParser = do
   cond <- statement $ string "if" >> skipSpace >> variableParser
-  skipSpaceTillEOL
+  skipTrailingWhitespace
   ifbody <- parser
-  skipSpaceTillEOL
+  skipTrailingWhitespace
   statement $ string "endif" <|> string "else"
-  skipSpaceTillEOL
+  skipTrailingWhitespace
   elsebody <- option Nothing (fmap Just parser)
   statement $ string "endif"
-  skipSpaceTillEOL
+  skipTrailingWhitespace
   return $ Condition cond ifbody elsebody
+
+loopParser :: Parser AST
+loopParser = do
+  (x, xs) <- statement $ do
+               string "for"
+               skipSpace
+               x <- takeTill (inClass " .[}")
+               skipSpace
+               string "in"
+               skipSpace
+               xs <- variableParser
+               return (x, xs)
+  skipTrailingWhitespace
+  loopbody <- parser
+  statement $ string "endfor"
+  skipTrailingWhitespace
+  return $ Foreach x xs loopbody
