@@ -46,9 +46,9 @@ haijiAST  esc  dict (Foreach k xs body) =
 haijiAST  esc  dict (Include file) = [e| $(haijiFile file) $(varE esc) $(varE dict) |]
 
 deref :: Name -> Variable -> ExpQ
-deref dict (SimpleVariable v) = [e| retrieve $(varE dict) (Key :: Key $(litT . strTyLit $ T.unpack v)) |]
-deref dict (ObjectDotVariable v f) = [e| retrieve $(deref dict v) (Key :: Key $(litT . strTyLit $ T.unpack f)) |]
-deref dict (ArrayIndexVariable v ix) = [e| $(deref dict v) !! ix |]
+deref dict (Simple v) = [e| retrieve $(varE dict) (Key :: Key $(litT . strTyLit $ T.unpack v)) |]
+deref dict (Attribute v f) = [e| retrieve $(deref dict v) (Key :: Key $(litT . strTyLit $ T.unpack f)) |]
+deref dict (At v ix) = [e| $(deref dict v) !! ix |]
 
 haijiType :: String -> Q Type
 haijiType = undefined

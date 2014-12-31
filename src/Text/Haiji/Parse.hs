@@ -5,17 +5,15 @@ import Control.Applicative
 import Data.Attoparsec.Text
 import qualified Data.Text as T
 
-data Variable = SimpleVariable T.Text
-              | ObjectDotVariable Variable T.Text
---              | ArrayObjectVariable Variable T.Text
-              | ArrayIndexVariable Variable Int
+data Variable = Simple T.Text
+              | Attribute Variable T.Text
+              | At Variable Int
                 deriving Eq
 
 instance Show Variable where
-    show (SimpleVariable v) = T.unpack v
-    show (ObjectDotVariable v f) = shows v "." ++ T.unpack f
---    show (ArrayObjectVariable v f) = shows v "[\"" ++ T.unpack f ++ "\"]"
-    show (ArrayIndexVariable v ix) = shows v "[" ++ show ix ++ "]"
+    show (Simple v) = T.unpack v
+    show (Attribute v f) = shows v "." ++ T.unpack f
+    show (At v ix) = shows v "[" ++ show ix ++ "]"
 
 data AST = Literal T.Text
          | Deref Variable
@@ -48,16 +46,10 @@ literalParser :: Parser AST
 literalParser = Literal <$> takeWhile1 (/= '{')
 
 derefParser :: Parser AST
-derefParser = do
-  string "{{"
-  skipSpace
-  v <- variableParser
-  skipSpace
-  string "}}"
-  return $ Deref v
+derefParser = Deref <$> ((string "{{" >> skipSpace) *> variableParser <* (skipSpace >> string "}}"))
 
 variableParser :: Parser Variable
-variableParser = ident >>= variableParser' . SimpleVariable where
+variableParser = ident >>= variableParser' . Simple where
     ident = takeTill (inClass " .[}")
     variableParser' v = do
       peek <- peekChar
@@ -65,17 +57,8 @@ variableParser = ident >>= variableParser' . SimpleVariable where
         Nothing  -> return v
         Just '}' -> return v
         Just ' ' -> return v
-        Just '.' -> do
-          char '.'
-          key <- ident
-          variableParser' (ObjectDotVariable v key)
-        Just '[' -> do
-          char '['
-          skipSpace
-          ix <- decimal
-          skipSpace
-          char ']'
-          variableParser' (ArrayIndexVariable v ix)
+        Just '.' -> char '.' >> ident >>= variableParser' . Attribute v
+        Just '[' -> (char '[' >> skipSpace) *> decimal <* (skipSpace >> char ']') >>= variableParser' . At v
         _        -> fail "variableParser: invalid variable"
 
 statement :: Parser a -> Parser a
@@ -85,30 +68,18 @@ conditionParser :: Parser AST
 conditionParser = do
   cond <- statement $ string "if" >> skipSpace >> variableParser
   ifbody <- parser
-  statement $ string "endif" <|> string "else"
-  elsebody <- option Nothing (fmap Just parser)
-  statement $ string "endif"
+  _ <- statement $ string "endif" <|> string "else" -- このあたり間違ってる
+  elsebody <- option Nothing (Just <$> parser)      --
+  _ <- statement $ string "endif"
   return $ Condition cond ifbody elsebody
 
 foreachParser :: Parser AST
 foreachParser = do
-  (x, xs) <- statement $ do
-               string "for"
-               skipSpace
-               x <- takeTill (inClass " .[}")
-               skipSpace
-               string "in"
-               skipSpace
-               xs <- variableParser
-               return (x, xs)
-  loopbody <- parser
-  statement $ string "endfor"
-  return $ Foreach x xs loopbody
+  foreachBlock <- statement $ Foreach
+                  <$> (string "for" >> skipSpace >> takeTill (inClass " .[}"))
+                  <*> (skipSpace >> string "in" >> skipSpace >> variableParser)
+  foreachBlock <$> parser <* statement (string "endfor")
 
 includeParser :: Parser AST
-includeParser = statement $ do
-                  let quotedBy c = char c *> takeTill (== c) <* char c
-                  string "include"
-                  skipSpace
-                  file <- quotedBy '"' <|> quotedBy '\''
-                  return $ Include (T.unpack file)
+includeParser = statement $ string "include" >> skipSpace >> Include . T.unpack <$> (quotedBy '"' <|> quotedBy '\'') where
+    quotedBy c = char c *> takeTill (== c) <* char c

@@ -97,13 +97,13 @@ type family Normalize d :: [*] where
 class Normalizable d where
     normalize :: TLDict d -> TLDict (Normalize d)
 instance Normalizable '[] where
-    normalize Empty = Empty
+    normalize d = d
 instance Normalizable '[kv] where
-    normalize (Ext x Empty) = Ext x Empty
-instance Normalizable ((k :-> v2) ': s) => Normalizable ((k :-> v1) ': (k :-> v2) ': s) where
-    normalize (Ext _ (Ext x s)) = normalize (Ext x s)
+    normalize d = d
+instance Normalizable ((k :-> v2) ': d) => Normalizable ((k :-> v1) ': (k :-> v2) ': d) where
+    normalize (Ext _ d) = normalize d
 instance (Normalize (x ': y ': d) ~ (x ': Normalize (y ': d)), Normalizable (y ': d)) => Normalizable (x ': y ': d) where
-    normalize (Ext x (Ext y s)) = Ext x (normalize (Ext y s))
+    normalize (Ext x d) = Ext x (normalize d)
 
 type family Sort (xs :: [k]) :: [k] where
     Sort '[]       = '[]
