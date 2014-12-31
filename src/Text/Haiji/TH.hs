@@ -40,7 +40,7 @@ haijiAST :: Name -> Name -> AST -> ExpQ
 haijiAST _esc _dict (Literal l) =
     [e| s |] where s = T.unpack l
 haijiAST  esc  dict (Deref x) =
-    [e| $(varE esc) $ toLazyText $ $(deref dict x) |]
+    [e| $(varE esc) $ toLT $ $(deref dict x) |]
 haijiAST  esc  dict (Condition p ts (Just fs)) =
     [e| (if $(deref dict p) then $(haijiASTs ts) else $(haijiASTs fs)) $(varE esc) $(varE dict) |]
 haijiAST  esc  dict (Condition p ts Nothing) =
