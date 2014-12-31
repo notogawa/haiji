@@ -7,15 +7,16 @@ module Main where
 import Text.Haiji
 import Text.Haiji.Types
 import Text.Haiji.TH
+import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.IO as LT
 
 main :: IO ()
 main = LT.putStr $ render HTML dict $(haijiFile "example.tmpl") where
     dict :: TLDict
-            '[ "a_variable" :-> LT.Text
+            '[ "a_variable" :-> T.Text
              , "navigation" :-> [ TLDict
-                                  '[ "href" :-> LT.Text
+                                  '[ "href" :-> String
                                    , "caption" :-> LT.Text
                                    ]
                                 ]
