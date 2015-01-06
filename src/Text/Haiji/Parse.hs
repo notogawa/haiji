@@ -9,20 +9,25 @@ import qualified Data.Text as T
 -- $setup
 -- >>> :set -XOverloadedStrings
 
-data Variable = Simple T.Text
-              | Attribute Variable T.Text
+newtype Identifier = Identifier String deriving Eq
+
+instance Show Identifier where
+  show (Identifier x) = x
+
+data Variable = Simple Identifier -- TODO: これだけ別の型にしておきたい
+              | Attribute Variable Identifier
               | At Variable Int
                 deriving Eq
 
 instance Show Variable where
-    show (Simple v) = T.unpack v
-    show (Attribute v f) = shows v "." ++ T.unpack f
+    show (Simple v) = show v
+    show (Attribute v f) = shows v "." ++ show f
     show (At v ix) = shows v "[" ++ show ix ++ "]"
 
 data AST = Literal T.Text
          | Deref Variable
          | Condition Variable [AST] (Maybe [AST])
-         | Foreach T.Text Variable [AST]
+         | Foreach Identifier Variable [AST]
          | Include FilePath
            deriving Eq
 
@@ -78,29 +83,29 @@ derefParser = Deref <$> ((string "{{" >> skipSpace) *> variableParser <* (skipSp
 -- https://docs.python.org/2.7/reference/lexical_analysis.html#identifiers
 --
 -- >>> parseOnly identifier "a"
--- Right "a"
+-- Right a
 -- >>> parseOnly identifier "_"
--- Right "_"
+-- Right _
 -- >>> parseOnly identifier "_a"
--- Right "_a"
+-- Right _a
 -- >>> parseOnly identifier "_1"
--- Right "_1"
+-- Right _1
 -- >>> parseOnly identifier "__"
--- Right "__"
+-- Right __
 -- >>> parseOnly identifier "_ "
--- Right "_"
+-- Right _
 -- >>> parseOnly identifier " _"
 -- Left "Failed reading: satisfy"
 -- >>> parseOnly identifier "and"
 -- Left "Failed reading: identifier"
 --
-identifier :: Parser T.Text
+identifier :: Parser Identifier
 identifier = do
   h <- letter <|> char '_'
   ts <- many (letter <|> digit <|> char '_')
   let candidate = h : ts
   when (candidate `elem` keywords) $ fail "identifier"
-  return $ T.pack candidate
+  return $ Identifier candidate
 
 -- | python keywords
 --
@@ -185,12 +190,12 @@ conditionParser = do
 -- |
 --
 -- >>> parseOnly foreachParser "{% for _ in foo %}loop{% endfor %}"
--- Right {% for "_" in foo %}loop{% endfor %}
+-- Right {% for _ in foo %}loop{% endfor %}
 --
 foreachParser :: Parser AST
 foreachParser = do
   foreachBlock <- statement $ Foreach
-                  <$> (string "for" >> skipSpace >> identifier) -- TODO: identifierは型を用意したい
+                  <$> (string "for" >> skipSpace >> identifier)
                   <*> (skipSpace >> string "in" >> skipSpace >> variableParser)
   foreachBlock <$> parser <* statement (string "endfor")
 

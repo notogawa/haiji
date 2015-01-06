@@ -46,7 +46,7 @@ haijiAST  esc  dict (Condition p ts (Just fs)) =
 haijiAST  esc  dict (Condition p ts Nothing) =
     [e| (if $(deref dict p) then $(haijiASTs ts) else (\_ _ -> "")) $(varE esc) $(varE dict) |]
 haijiAST  esc  dict (Foreach k xs body) =
-    [e| LT.concat $ map (\x -> $(haijiASTs body) $(varE esc) (add x (Key :: Key $(litT . strTyLit $ T.unpack k)) $(varE dict))) $(deref dict xs)|]
+    [e| LT.concat $ map (\x -> $(haijiASTs body) $(varE esc) (add x (Key :: Key $(litT . strTyLit $ show k)) $(varE dict))) $(deref dict xs)|]
 haijiAST  esc  dict (Include file) =
     [e| $(haijiFile file) $(varE esc) $(varE dict) |]
 
@@ -59,9 +59,9 @@ instance ToLT Integer where toLT = toLT . show
 
 deref :: Name -> Variable -> ExpQ
 deref dict (Simple v) =
-    [e| retrieve $(varE dict) (Key :: Key $(litT . strTyLit $ T.unpack v)) |]
+    [e| retrieve $(varE dict) (Key :: Key $(litT . strTyLit $ show v)) |]
 deref dict (Attribute v f) =
-    [e| retrieve $(deref dict v) (Key :: Key $(litT . strTyLit $ T.unpack f)) |]
+    [e| retrieve $(deref dict v) (Key :: Key $(litT . strTyLit $ show f)) |]
 deref dict (At v ix) =
     [e| $(deref dict v) !! ix |]
 
