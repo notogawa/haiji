@@ -29,11 +29,11 @@ data AST = Literal T.Text
 instance Show AST where
     show (Literal l) = T.unpack l
     show (Deref v) = "{{ " ++ shows v " }}"
-    show (Condition p ts mfs) = "{% if " ++ show p ++ "%}" ++
+    show (Condition p ts mfs) = "{% if " ++ show p ++ " %}" ++
                                 concatMap show ts ++
                                 maybe "" (\fs -> "{% else %}" ++ concatMap show fs) mfs ++
                                 "{% endif %}"
-    show (Foreach x xs asts) = "{% for " ++ show x ++ " in " ++ show xs ++ "%}" ++
+    show (Foreach x xs asts) = "{% for " ++ show x ++ " in " ++ show xs ++ " %}" ++
                                concatMap show asts ++
                                "{% endfor %}"
     show (Include file) = "{% include \"" ++ file ++ "\" %}"
@@ -109,12 +109,12 @@ identifier = do
 keywords :: [String]
 keywords = words
            $  "and       del       from      not       while "
-           ++ "as        elif      global    or        with "
+           ++ "as        elif      global    or        with  "
            ++ "assert    else      if        pass      yield "
-           ++ "break     except    import    print "
-           ++ "class     exec      in        raise "
-           ++ "continue  finally   is        return "
-           ++ "def       for       lambda    try "
+           ++ "break     except    import    print           "
+           ++ "class     exec      in        raise           "
+           ++ "continue  finally   is        return          "
+           ++ "def       for       lambda    try             "
 
 -- |
 --
@@ -131,7 +131,7 @@ keywords = words
 -- >>> parseOnly variableParser "foo.b}}ar"
 -- Right foo.b
 -- >>> parseOnly variableParser "foo.b ar"
--- Left "Failed reading: variableParser"
+-- Right foo.b
 -- >>> parseOnly variableParser "foo.b }ar"
 -- Right foo.b
 -- >>> parseOnly variableParser " foo.bar"
@@ -160,27 +160,47 @@ variableParser = identifier >>= variableParser' . Simple where
         Just ' ' -> return v
         Just '.' -> char '.' >> skipSpace >> identifier >>= variableParser' . Attribute v
         Just '[' -> (char '[' >> skipSpace) *> decimal <* (skipSpace >> char ']') >>= variableParser' . At v
-        _        -> fail "variableParser"
+        _        -> return v
 
 statement :: Parser a -> Parser a
 statement f = (string "{%" >> skipSpace) *> f <* (skipSpace >> string "%}")
 
+-- |
+--
+-- >>> parseOnly conditionParser "{% if foo %}テスト{% endif %}"
+-- Right {% if foo %}テスト{% endif %}
+-- >>> parseOnly conditionParser "{% if foo %}真{% else %}偽{% endif %}"
+-- Right {% if foo %}真{% else %}偽{% endif %}
+-- >>> parseOnly conditionParser "{%if foo%}{%if bar%}{%else%}{%endif%}{%else%}{%if baz%}{%else%}{%endif%}{%endif%}"
+-- Right {% if foo %}{% if bar %}{% else %}{% endif %}{% else %}{% if baz %}{% else %}{% endif %}{% endif %}
+--
 conditionParser :: Parser AST
 conditionParser = do
   cond <- statement $ string "if" >> skipSpace >> variableParser
   ifbody <- parser
-  _ <- statement $ string "endif" <|> string "else" -- このあたり間違ってる
-  elsebody <- option Nothing (Just <$> parser)      --
+  elsebody <- option Nothing (Just <$> (statement (string "else") *> parser))
   _ <- statement $ string "endif"
   return $ Condition cond ifbody elsebody
 
+-- |
+--
+-- >>> parseOnly foreachParser "{% for _ in foo %}loop{% endfor %}"
+-- Right {% for "_" in foo %}loop{% endfor %}
+--
 foreachParser :: Parser AST
 foreachParser = do
   foreachBlock <- statement $ Foreach
-                  <$> (string "for" >> skipSpace >> takeTill (inClass " .[}"))
+                  <$> (string "for" >> skipSpace >> identifier) -- TODO: identifierは型を用意したい
                   <*> (skipSpace >> string "in" >> skipSpace >> variableParser)
   foreachBlock <$> parser <* statement (string "endfor")
 
+-- |
+--
+-- >>> parseOnly includeParser "{% include \"foo.tmpl\" %}"
+-- Right {% include "foo.tmpl" %}
+-- >>> parseOnly includeParser "{% include 'foo.tmpl' %}"
+-- Right {% include "foo.tmpl" %}
+--
 includeParser :: Parser AST
 includeParser = statement $ string "include" >> skipSpace >> Include . T.unpack <$> (quotedBy '"' <|> quotedBy '\'') where
-    quotedBy c = char c *> takeTill (== c) <* char c
+    quotedBy c = char c *> takeTill (== c) <* char c -- TODO: ここもっとマジメにやらないと
