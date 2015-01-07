@@ -6,9 +6,12 @@ module Text.Haiji
     ( render
     , Rendering(..)
     , Template
+    , haiji
+    , haijiFile
     ) where
 
 import Text.Haiji.Types
+import Text.Haiji.TH
 import qualified Data.Text.Lazy as LT
 
 data Rendering = Raw

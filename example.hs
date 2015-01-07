@@ -6,7 +6,6 @@ module Main where
 
 import Text.Haiji
 import Text.Haiji.Types
-import Text.Haiji.TH
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.IO as LT
