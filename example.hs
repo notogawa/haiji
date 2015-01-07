@@ -11,7 +11,7 @@ import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.IO as LT
 
 main :: IO ()
-main = LT.putStr $ render HTML dict $(haijiFile "example.tmpl") where
+main = LT.putStr $ render HTML (asTLDict dict) $(haijiFile "example.tmpl") where
     dict :: TLDict
             '[ "a_variable" :-> T.Text
              , "navigation" :-> [ TLDict

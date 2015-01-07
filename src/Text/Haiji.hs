@@ -1,6 +1,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE FlexibleContexts #-}
 module Text.Haiji
     ( render
@@ -31,5 +32,5 @@ escape HTML = LT.concatMap replace where
 
 type Template require = (LT.Text -> LT.Text) -> TLDict require -> LT.Text
 
-render :: Rendering -> TLDict s -> Template s -> LT.Text
+render :: IsTLDict s => Rendering -> TLDict s -> Template s -> LT.Text
 render rendering dict template = template (escape rendering) dict

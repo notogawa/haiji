@@ -12,6 +12,8 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Text.Haiji.Types
     ( TLDict(..)
+    , IsTLDict
+    , asTLDict
     , merge
     , (:->)(..)
     , Key(..)
@@ -69,7 +71,7 @@ type AsTLDict s = Normalize (Sort s)
 asTLDict :: (Sortable d, Normalizable (Sort d)) => TLDict d -> TLDict (AsTLDict d)
 asTLDict = normalize . quicksort
 
--- type IsTLDict d = (d ~ Normalize (Sort d))
+type IsTLDict d = (d ~ Normalize (Sort d))
 
 type Merge xs ys = Normalize (Sort (xs :++ ys))
 
