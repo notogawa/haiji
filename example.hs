@@ -15,16 +15,16 @@ main = LT.putStr $ render HTML (asTLDict dict) $(haijiFile "example.tmpl") where
     dict :: TLDict
             '[ "a_variable" :-> T.Text
              , "navigation" :-> [ TLDict
-                                  '[ "href" :-> String
-                                   , "caption" :-> LT.Text
+                                  '[ "caption" :-> LT.Text
+                                   , "href" :-> String
                                    ]
                                 ]
              , "foo" :-> Int
              , "bar" :-> LT.Text
              ]
     dict = Ext (Value "Hello,World!") $
-           Ext (Value [ Ext (Value "content/a.html") $ Ext (Value "A") Empty
-                      , Ext (Value "content/b.html") $ Ext (Value "B") Empty
+           Ext (Value [ Ext (Value "A") $ Ext (Value "content/a.html") $ Empty
+                      , Ext (Value "B") $ Ext (Value "content/b.html") $ Empty
                       ]
                ) $
            Ext (Value 1) $

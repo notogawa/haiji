@@ -45,9 +45,9 @@ instance KnownSymbol k => Show (Key k) where
 
 class Retrieve d k v where
     retrieve :: d -> Key k -> v
-instance v' ~ v => Retrieve (TLDict ((k :-> v') ': d)) k v where
+instance (IsTLDict d, IsTLDict (((k :-> v') ': d)), v' ~ v) => Retrieve (TLDict ((k :-> v') ': d)) k v where
     retrieve (Ext (Value v) _) _ = v
-instance Retrieve (TLDict d) k v => Retrieve (TLDict (kv ': d)) k v where
+instance (IsTLDict d, IsTLDict (kv ': d), Retrieve (TLDict d) k v) => Retrieve (TLDict (kv ': d)) k v where
     retrieve (Ext _ d) k = retrieve d k
 
 data TLDict (kv :: [*]) where
