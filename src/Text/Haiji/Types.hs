@@ -15,6 +15,8 @@ module Text.Haiji.Types
     , IsTLDict
     , asTLDict
     , merge
+    , value
+    , key
     , (:->)(..)
     , Key(..)
     , Retrieve(..) ) where
