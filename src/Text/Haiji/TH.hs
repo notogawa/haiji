@@ -1,7 +1,4 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE DataKinds #-}
-{-# LANGUAGE TypeOperators #-}
-{-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 module Text.Haiji.TH ( haiji, haijiFile, key ) where
 
@@ -29,19 +26,16 @@ haijiExp = either error haijiASTs . parseOnly parser . T.pack
 
 key :: QuasiQuoter
 key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . strTyLit $ k)) |]
-                , quotePat = undefined
-                , quoteType = undefined
-                , quoteDec = undefined
-                }
+                  , quotePat = undefined
+                  , quoteType = undefined
+                  , quoteDec = undefined
+                  }
 
 haijiASTs :: [AST] -> ExpQ
 haijiASTs asts = do
   esc <- newName "esc"
   dict <- newName "dict"
   [e| \ $(varP esc) $(varP dict) -> LT.concat $(listE $ map (haijiAST esc dict) asts) |]
-
-singleton :: x -> Key k -> TLDict '[ k :-> x ]
-singleton x _ = Ext (Value x) Empty
 
 haijiAST :: Name -> Name -> AST -> ExpQ
 haijiAST _esc _dict (Literal l) =
@@ -72,5 +66,5 @@ deref dict (Attribute v f) =
 deref dict (At v ix) =
     [e| $(deref dict v) !! ix |]
 
-haijiType :: String -> Q Type
+haijiType :: String -> TypeQ
 haijiType = undefined
