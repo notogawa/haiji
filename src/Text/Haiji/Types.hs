@@ -21,10 +21,15 @@ module Text.Haiji.Types
     , retrieve
     ) where
 
-import GHC.TypeLits
+import Data.Aeson
+import Data.Monoid
+import Data.Proxy
+import qualified Data.Text as T
+import qualified Data.Text.Lazy as LT
+import qualified Data.Text.Lazy.Encoding as LT
 import Data.Type.Bool
 import Data.Type.Equality
-import Data.Proxy
+import GHC.TypeLits
 
 data Key (k :: Symbol) where Key :: Key k
 
@@ -42,12 +47,6 @@ value (Value v) = v
 key :: KnownSymbol k => k :-> v -> String
 key = symbolVal . VK
 
-instance (Show v, KnownSymbol k) => Show (k :-> v) where
-    show x = key x ++ " :-> " ++ show (value x)
-
-instance KnownSymbol k => Show (Key k) where
-    show = symbolVal
-
 class Retrieve d k v where
     retrieve :: d -> Key k -> v
 instance (IsTLDict d, IsTLDict (((k :-> v') ': d)), v' ~ v) => Retrieve (TLDict ((k :-> v') ': d)) k v where
@@ -59,17 +58,19 @@ data TLDict (kv :: [*]) where
     Empty :: TLDict '[]
     Ext :: k :-> v -> TLDict d -> TLDict ((k :-> v) ': d)
 
-instance Show (TLDict '[]) where
-    show Empty = "{}"
-instance (Show kv, Show' (TLDict d)) => Show (TLDict (kv ': d)) where
-    show (Ext kv d) = "{" ++ show kv ++ show' d ++ "}"
+instance ToJSON (TLDict '[]) where
+  toJSON Empty = object []
 
-class Show' d where
-    show' :: d -> String
-instance Show' (TLDict '[]) where
-    show' Empty = ""
-instance (Show' (TLDict d), Show kv) => Show' (TLDict (kv ': d)) where
-    show' (Ext kv d) = ", " ++ show kv ++ show' d
+instance (ToJSON (TLDict s), ToJSON kv) => ToJSON (TLDict (kv ': s)) where
+  toJSON (Ext x xs) = Object (a <> b) where
+    Object a = toJSON x
+    Object b = toJSON xs
+
+instance (ToJSON v, KnownSymbol k) => ToJSON (k :-> v) where
+  toJSON x = object [ T.pack (key x) .= value x ]
+
+instance ToJSON (TLDict s) => Show (TLDict s) where
+  show = LT.unpack . LT.decodeUtf8 . encode
 
 type AsTLDict s = Normalize (Sort s)
 

@@ -6,28 +6,25 @@ module Main where
 import Test.Tasty.TH
 import Test.Tasty.HUnit
 
-import Data.Aeson
 import Text.Haiji
 import Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
-import qualified Data.Text.Lazy.Encoding as LT
 import System.Process.Text.Lazy
-
-import Test.Util ()
 
 main :: IO ()
 main = $(defaultMainGenerator)
 
-renderByJinja2 :: ToJSON a => LT.Text -> a -> IO LT.Text
+renderByJinja2 :: Show a => LT.Text -> a -> IO LT.Text
 renderByJinja2 template dict = do
-  (_code, out, _err) <- readProcessWithExitCode "python" []
-                        $ LT.unlines [ "from jinja2 import Environment, PackageLoader"
-                                     , "env = Environment(loader=PackageLoader('example', '.'))"
-                                     , "template = env.get_template('" <> template <> "')"
-                                     , "print template.render(", LT.decodeUtf8 (encode dict), ")"
-                                     ]
-  return out
+  (_code, out, _err) <- readProcessWithExitCode "python" [] script
+  return out where
+    script = LT.unlines
+             [ "from jinja2 import Environment, PackageLoader"
+             , "env = Environment(loader=PackageLoader('example', '.'))"
+             , "template = env.get_template('" <> template <> "')"
+             , "print template.render(", LT.pack (show dict), ")"
+             ]
 
 case_example :: Assertion
 case_example = do
