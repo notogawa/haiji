@@ -9,7 +9,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.IO as LT
 import Text.Haiji.Parse
-import Text.Haiji.Types hiding (key)
+import Text.Haiji.Types
 
 haiji :: QuasiQuoter
 haiji = QuasiQuoter { quoteExp = haijiExp

@@ -12,8 +12,8 @@ module Text.Haiji
     , merge
     ) where
 
-import Text.Haiji.Types hiding (key)
 import Text.Haiji.TH
+import Text.Haiji.Types
 import qualified Data.Text.Lazy as LT
 
 data Rendering = Raw

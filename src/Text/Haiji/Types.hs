@@ -14,9 +14,6 @@ module Text.Haiji.Types
     ( TLDict(..)
     , singleton
     , merge
-    , value
-    , key
-    , (:->)(..)
     , Key(..)
     , retrieve
     ) where
