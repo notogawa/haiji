@@ -23,8 +23,8 @@ library
   -- other-extensions:
   build-depends:       base >=4.7 && <4.8
                      , text
-                     , attoparsec
-                     , template-haskell
+                     , attoparsec >=0.12
+                     , template-haskell >=2.8
   hs-source-dirs:      src
   ghc-options:         -Wall
   default-language:    Haskell2010
