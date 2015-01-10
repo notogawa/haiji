@@ -15,25 +15,25 @@ import System.Process.Text.Lazy
 main :: IO ()
 main = $(defaultMainGenerator)
 
-renderByJinja2 :: Show a => LT.Text -> a -> IO LT.Text
-renderByJinja2 template dict = do
+jinja2 :: Show a => Rendering -> LT.Text -> a -> IO LT.Text
+jinja2 rendering template dict = do
   (_code, out, _err) <- readProcessWithExitCode "python" [] script
   return out where
     script = LT.unlines
              [ "from jinja2 import Environment, PackageLoader"
-             , "env = Environment(loader=PackageLoader('example', '.'))"
+             , "env = Environment(loader=PackageLoader('example', '.'),autoescape=" <> LT.pack (show $ rendering == HTML) <> ")"
              , "template = env.get_template('" <> template <> "')"
              , "print template.render(", LT.pack (show dict), ")"
              ]
 
 case_example :: Assertion
 case_example = do
-  expected <- renderByJinja2 "example.tmpl" dict
+  expected <- jinja2 HTML "example.tmpl" dict
   expected @=? render HTML dict $(haijiFile "example.tmpl") where
     dict = [key|a_variable|] ("Hello,World!" :: T.Text) `merge`
            [key|navigation|] [ [key|caption|] ("A" :: LT.Text) `merge`
                                [key|href|] ("content/a.html" :: String)
-                             , [key|caption|] ("B" :: LT.Text) `merge`
+                             , [key|caption|] ("&<>'\"\\" :: LT.Text) `merge`
                                [key|href|] ("content/b.html" :: String)
                              ] `merge`
            [key|foo|] (1 :: Int) `merge`

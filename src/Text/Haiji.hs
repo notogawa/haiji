@@ -24,8 +24,7 @@ escape :: Rendering -> LT.Text -> LT.Text
 escape Raw = id
 escape HTML = LT.concatMap replace where
     replace '&'  = "&amp;"
-    replace '\\' = "&#92;"
-    replace '"'  = "&quot;"
+    replace '"'  = "&#34;"
     replace '\'' = "&#39;"
     replace '<'  = "&lt;"
     replace '>'  = "&gt;"
