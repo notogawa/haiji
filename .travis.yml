@@ -84,6 +84,6 @@ script:
     fi)
 
 after_script:
-  - hpc-coveralls tests
+  - hpc-coveralls --exclude-dir=test tests
 
 # EOF
