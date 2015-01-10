@@ -3,7 +3,7 @@
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Text.Haiji.TH ( haiji, haijiFile ) where
+module Text.Haiji.TH ( haiji, haijiFile, key ) where
 
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote
@@ -12,7 +12,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.IO as LT
 import Text.Haiji.Parse
-import Text.Haiji.Types
+import Text.Haiji.Types hiding (key)
 
 haiji :: QuasiQuoter
 haiji = QuasiQuoter { quoteExp = haijiExp
@@ -26,6 +26,13 @@ haijiFile file = runIO (LT.readFile file) >>= haijiExp . LT.unpack
 
 haijiExp :: String -> ExpQ
 haijiExp = either error haijiASTs . parseOnly parser . T.pack
+
+key :: QuasiQuoter
+key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . strTyLit $ k)) |]
+                , quotePat = undefined
+                , quoteType = undefined
+                , quoteDec = undefined
+                }
 
 haijiASTs :: [AST] -> ExpQ
 haijiASTs asts = do

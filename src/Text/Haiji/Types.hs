@@ -12,14 +12,13 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Text.Haiji.Types
     ( TLDict(..)
-    , IsTLDict
-    , asTLDict
     , merge
     , value
     , key
     , (:->)(..)
     , Key(..)
-    , Retrieve(..) ) where
+    , retrieve
+    ) where
 
 import GHC.TypeLits
 import Data.Type.Bool

@@ -8,9 +8,11 @@ module Text.Haiji
     , Template
     , haiji
     , haijiFile
+    , key
+    , merge
     ) where
 
-import Text.Haiji.Types
+import Text.Haiji.Types hiding (key)
 import Text.Haiji.TH
 import qualified Data.Text.Lazy as LT
 
