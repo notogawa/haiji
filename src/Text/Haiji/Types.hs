@@ -151,7 +151,7 @@ instance Conder 'True where
 instance Conder 'False where
     cond _ _ t = t
 
-instance (Conder (Cmp x p == LT), FilterV 'FMin p xs) => FilterV 'FMin p (x ': xs) where
+instance (Conder (Cmp x p == 'LT), FilterV 'FMin p xs) => FilterV 'FMin p (x ': xs) where
     filterV f@Proxy p (Ext x xs) =
         cond
         (Proxy :: Proxy (Cmp x p == 'LT))
