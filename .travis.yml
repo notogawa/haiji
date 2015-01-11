@@ -13,10 +13,6 @@ env:
   # - CABALVER=head GHCVER=head
   - HPVER=2014.2.0.0
 
-matrix:
-  allow_failures:
-    - env: CABALVER=1.22 GHCVER=7.10.1
-
 # Note: the distinction between `before_install` and `install` is not
 #       important.
 before_install:
@@ -63,11 +59,11 @@ script:
   # -v2 provides useful information for debugging
   # Option --enable-library-coverage is obsolete.
   # Use --enable-coverage instead if it available.
-  - if cabal configure --help | grep 'enable-coverage' > /dev/null
+  - if cabal configure --help | grep 'enable-coverage' > /dev/null;
     then
-      cabal configure --enable-tests --enable-benchmarks --enable-coverage         -v2 --ghc-options="-Wall -Werror"
+      cabal configure --enable-tests --enable-benchmarks --enable-coverage         -v2 --ghc-options="-Wall -Werror";
     else
-      cabal configure --enable-tests --enable-benchmarks --enable-library-coverage -v2 --ghc-options="-Wall -Werror"
+      cabal configure --enable-tests --enable-benchmarks --enable-library-coverage -v2 --ghc-options="-Wall -Werror";
     fi
 
   # this builds all libraries and executables
