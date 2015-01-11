@@ -30,11 +30,14 @@ case_example :: Assertion
 case_example = do
   expected <- jinja2 HTML "example.tmpl" dict
   expected @=? render HTML dict $(haijiFile "example.tmpl") where
-    dict = [key|a_variable|] ("Hello,World!" :: T.Text) `merge`
-           [key|navigation|] [ [key|caption|] ("A" :: LT.Text) `merge`
-                               [key|href|] ("content/a.html" :: String)
-                             , [key|caption|] ("&<>'\"\\" :: LT.Text) `merge`
-                               [key|href|] ("content/b.html" :: String)
-                             ] `merge`
-           [key|foo|] (1 :: Int) `merge`
-           [key|bar|] ("" :: String)
+    dict = $(haijiDict [d| a_variable = "Hello,World!" :: T.Text
+                           navigation = [ $(haijiDict [d| caption = "A" :: LT.Text
+                                                          href = "content/a.html" :: String
+                                                       |])
+                                        , $(haijiDict [d| caption = "&<>'\"\\"
+                                                          href = "content/b.html"
+                                                       |])
+                                        ]
+                           foo = 1 :: Int
+                           bar = "" :: String
+                        |])

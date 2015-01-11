@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Text.Haiji.TH ( haiji, haijiFile, key ) where
+module Text.Haiji.TH ( haiji, haijiFile, haijiDict ) where
 
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote
@@ -24,12 +24,12 @@ haijiFile file = runIO (LT.readFile file) >>= haijiExp . LT.unpack
 haijiExp :: String -> ExpQ
 haijiExp = either error haijiASTs . parseOnly parser . T.pack
 
-key :: QuasiQuoter
-key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . strTyLit $ k)) |]
-                  , quotePat = undefined
-                  , quoteType = undefined
-                  , quoteDec = undefined
-                  }
+haijiDict :: Q [Dec] -> ExpQ
+haijiDict = (>>= dict') where
+  dict' [] = [e| Empty |]
+  dict' (dec:decs) = [e| $(dec2dict dec) `merge` $(dict' decs) |]
+  dec2dict (ValD (VarP name) (NormalB body) []) = [e| singleton $(return body) (Key :: Key $(litT . strTyLit . nameBase $ name ))|]
+  dec2dict _ = fail "invalid haijiDict"
 
 haijiASTs :: [AST] -> ExpQ
 haijiASTs asts = do
