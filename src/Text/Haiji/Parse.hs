@@ -84,6 +84,12 @@ derefParser = Deref <$> ((string "{{" >> skipSpace) *> variableParser <* (skipSp
 --
 -- >>> parseOnly identifier "a"
 -- Right a
+-- >>> parseOnly identifier "ab"
+-- Right ab
+-- >>> parseOnly identifier "A"
+-- Right A
+-- >>> parseOnly identifier "Ab"
+-- Right Ab
 -- >>> parseOnly identifier "_"
 -- Right _
 -- >>> parseOnly identifier "_a"
@@ -98,6 +104,12 @@ derefParser = Deref <$> ((string "{{" >> skipSpace) *> variableParser <* (skipSp
 -- Left "Failed reading: satisfy"
 -- >>> parseOnly identifier "and"
 -- Left "Failed reading: identifier"
+-- >>> parseOnly identifier "1"
+-- Left "Failed reading: satisfy"
+-- >>> parseOnly identifier "1b"
+-- Left "Failed reading: satisfy"
+-- >>> parseOnly identifier "'x"
+-- Left "Failed reading: satisfy"
 --
 identifier :: Parser Identifier
 identifier = do
