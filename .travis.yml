@@ -61,7 +61,14 @@ install:
 script:
   - if [ -f configure.ac ]; then autoreconf -i; fi
   # -v2 provides useful information for debugging
-  - cabal configure --enable-tests --enable-benchmarks --enable-library-coverage -v2 --ghc-options="-Wall -Werror"
+  # Option --enable-library-coverage is obsolete.
+  # Use --enable-coverage instead if it available.
+  - if cabal configure --help | grep 'enable-coverage' > /dev/null
+    then
+      cabal configure --enable-tests --enable-benchmarks --enable-coverage         -v2 --ghc-options="-Wall -Werror"
+    else
+      cabal configure --enable-tests --enable-benchmarks --enable-library-coverage -v2 --ghc-options="-Wall -Werror"
+    fi
 
   # this builds all libraries and executables
   # (including tests/benchmarks)
