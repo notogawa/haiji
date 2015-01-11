@@ -14,7 +14,7 @@ import Text.Haiji.Types
 haiji :: QuasiQuoter
 haiji = QuasiQuoter { quoteExp = haijiExp
                     , quotePat = undefined
-                    , quoteType = haijiType
+                    , quoteType = undefined
                     , quoteDec = undefined
                     }
 
@@ -65,6 +65,3 @@ deref dict (Attribute v f) =
     [e| retrieve $(deref dict v) (Key :: Key $(litT . strTyLit $ show f)) |]
 deref dict (At v ix) =
     [e| $(deref dict v) !! ix |]
-
-haijiType :: String -> TypeQ
-haijiType = undefined
