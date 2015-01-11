@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE PolyKinds #-}
@@ -8,7 +9,10 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE ConstraintKinds #-}
+#if MIN_VERSION_base(4,8,0)
+#else
 {-# LANGUAGE OverlappingInstances #-}
+#endif
 {-# LANGUAGE ScopedTypeVariables #-}
 module Text.Haiji.Types
     ( TLDict(..)
@@ -46,10 +50,18 @@ key = symbolVal . VK
 
 class Retrieve d k v where
     retrieve :: d -> Key k -> v
-instance (IsTLDict d, IsTLDict (((k :-> v') ': d)), v' ~ v) => Retrieve (TLDict ((k :-> v') ': d)) k v where
-    retrieve (Ext (Value v) _) _ = v
-instance (IsTLDict d, IsTLDict (kv ': d), Retrieve (TLDict d) k v) => Retrieve (TLDict (kv ': d)) k v where
+#if MIN_VERSION_base(4,8,0)
+instance {-# OVERLAPPABLE #-} (IsTLDict d, IsTLDict (kv ': d), Retrieve (TLDict d) k v) => Retrieve (TLDict (kv ': d)) k v where
+#else
+instance                      (IsTLDict d, IsTLDict (kv ': d), Retrieve (TLDict d) k v) => Retrieve (TLDict (kv ': d)) k v where
+#endif
     retrieve (Ext _ d) k = retrieve d k
+#if MIN_VERSION_base(4,8,0)
+instance {-# OVERLAPPING #-} (IsTLDict d, IsTLDict (((k :-> v') ': d)), v' ~ v) => Retrieve (TLDict ((k :-> v') ': d)) k v where
+#else
+instance                     (IsTLDict d, IsTLDict (((k :-> v') ': d)), v' ~ v) => Retrieve (TLDict ((k :-> v') ': d)) k v where
+#endif
+    retrieve (Ext (Value v) _) _ = v
 
 data TLDict (kv :: [*]) where
     Empty :: TLDict '[]
