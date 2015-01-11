@@ -71,3 +71,17 @@ case_condition = do
         dict = [key|foo|] foo `merge`
                [key|bar|] bar `merge`
                [key|baz|] baz
+
+case_foreach :: Assertion
+case_foreach = do
+  expected <- jinja2 HTML dict "test/foreach.tmpl"
+  expected @=? render HTML dict $(haijiFile "test/foreach.tmpl") where
+    dict = [key|foo|] ([0,2..10] :: [Int])
+
+case_foreach_shadowing :: Assertion
+case_foreach_shadowing = do
+  expected <- jinja2 HTML dict "test/foreach.tmpl"
+  expected @=? render HTML dict $(haijiFile "test/foreach.tmpl")
+  False @=? ("bar" `LT.isInfixOf` expected) where
+    dict = [key|foo|] ([0,2..10] :: [Int]) `merge`
+           [key|bar|] ("bar" :: String)
