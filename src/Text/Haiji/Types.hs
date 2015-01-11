@@ -112,7 +112,7 @@ instance (Normalize (x ': y ': d) ~ (x ': Normalize (y ': d)), Normalizable (y '
 
 type family Sort (xs :: [k]) :: [k] where
     Sort '[]       = '[]
-    Sort (x ': xs) = Sort (Filter FMin x xs) :++ '[x] :++ Sort (Filter FMax x xs)
+    Sort (x ': xs) = Sort (Filter 'FMin x xs) :++ '[x] :++ Sort (Filter 'FMax x xs)
 
 data Flag = FMin | FMax
 
@@ -121,23 +121,23 @@ type instance Cmp (k1 :-> v1) (k2 :-> v2) = CmpSymbol k1 k2
 
 type family Filter (f :: Flag) (p :: k) (xs :: [k]) :: [k] where
     Filter f    p '[]       = '[]
-    Filter FMin p (x ': xs) = If (Cmp x p == LT) (x ': Filter FMin p xs) (Filter FMin p xs)
-    Filter FMax p (x ': xs) = If (Cmp x p == GT || Cmp x p == EQ) (x ': Filter FMax p xs) (Filter FMax p xs)
+    Filter 'FMin p (x ': xs) = If (Cmp x p == 'LT) (x ': Filter 'FMin p xs) (Filter 'FMin p xs)
+    Filter 'FMax p (x ': xs) = If (Cmp x p == 'GT || Cmp x p == 'EQ) (x ': Filter 'FMax p xs) (Filter 'FMax p xs)
 
 class Sortable xs where
     quicksort :: TLDict xs -> TLDict (Sort xs)
 instance Sortable '[] where
     quicksort Empty = Empty
-instance ( Sortable (Filter FMin p xs)
-         , Sortable (Filter FMax p xs)
-         , FilterV FMin p xs
-         , FilterV FMax p xs) => Sortable (p ': xs) where
+instance ( Sortable (Filter 'FMin p xs)
+         , Sortable (Filter 'FMax p xs)
+         , FilterV 'FMin p xs
+         , FilterV 'FMax p xs) => Sortable (p ': xs) where
     quicksort (Ext p xs) = quicksort (less p xs) `append`
                            Ext p Empty           `append`
                            quicksort (more p xs)
         where
-          less = filterV (Proxy :: Proxy FMin)
-          more = filterV (Proxy :: Proxy FMax)
+          less = filterV (Proxy :: Proxy 'FMin)
+          more = filterV (Proxy :: Proxy 'FMax)
 
 class FilterV (f::Flag) p xs where
     filterV :: Proxy f -> p -> TLDict xs -> TLDict (Filter f p xs)
@@ -146,20 +146,20 @@ instance FilterV f p '[] where
 
 class Conder g where
     cond :: Proxy g -> TLDict s -> TLDict t -> TLDict (If g s t)
-instance Conder True where
+instance Conder 'True where
     cond _ s _ = s
-instance Conder False where
+instance Conder 'False where
     cond _ _ t = t
 
-instance (Conder (Cmp x p == LT), FilterV FMin p xs) => FilterV FMin p (x ': xs) where
+instance (Conder (Cmp x p == LT), FilterV 'FMin p xs) => FilterV 'FMin p (x ': xs) where
     filterV f@Proxy p (Ext x xs) =
         cond
-        (Proxy :: Proxy (Cmp x p == LT))
+        (Proxy :: Proxy (Cmp x p == 'LT))
         (Ext x (filterV f p xs))
         (filterV f p xs)
-instance (Conder (Cmp x p == GT || Cmp x p == EQ), FilterV FMax p xs) => FilterV FMax p (x ': xs) where
+instance (Conder (Cmp x p == 'GT || Cmp x p == 'EQ), FilterV 'FMax p xs) => FilterV 'FMax p (x ': xs) where
     filterV f@Proxy p (Ext x xs) =
         cond
-        (Proxy :: Proxy (Cmp x p == GT || Cmp x p == EQ))
+        (Proxy :: Proxy (Cmp x p == 'GT || Cmp x p == 'EQ))
         (Ext x (filterV f p xs))
         (filterV f p xs)
