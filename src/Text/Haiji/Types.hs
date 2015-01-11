@@ -117,10 +117,18 @@ instance Normalizable '[] where
     normalize d = d
 instance Normalizable '[kv] where
     normalize d = d
-instance Normalizable ((k :-> v2) ': d) => Normalizable ((k :-> v1) ': (k :-> v2) ': d) where
-    normalize (Ext _ d) = normalize d
-instance (Normalize (x ': y ': d) ~ (x ': Normalize (y ': d)), Normalizable (y ': d)) => Normalizable (x ': y ': d) where
+#if MIN_VERSION_base(4,8,0)
+instance {-# OVERLAPPABLE #-} (Normalize (x ': y ': d) ~ (x ': Normalize (y ': d)), Normalizable (y ': d)) => Normalizable (x ': y ': d) where
+#else
+instance                      (Normalize (x ': y ': d) ~ (x ': Normalize (y ': d)), Normalizable (y ': d)) => Normalizable (x ': y ': d) where
+#endif
     normalize (Ext x d) = Ext x (normalize d)
+#if MIN_VERSION_base(4,8,0)
+instance {-# OVERLAPPING #-} Normalizable ((k :-> v2) ': d) => Normalizable ((k :-> v1) ': (k :-> v2) ': d) where
+#else
+instance                     Normalizable ((k :-> v2) ': d) => Normalizable ((k :-> v1) ': (k :-> v2) ': d) where
+#endif
+    normalize (Ext _ d) = normalize d
 
 type family Sort (xs :: [k]) :: [k] where
     Sort '[]       = '[]
