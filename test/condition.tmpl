@@ -1,0 +1,21 @@
+{% if foo %}テスト{% endif %}
+
+{% if foo %}真{% else %}偽{% endif %}
+
+{% if foo %}
+foo = True
+{% if bar %}
+bar = True
+{% else %}
+bar = False
+{% endif %}
+A
+{% else %}
+foo = Fasle
+{% if baz %}
+baz = True
+{% else %}
+baz = False
+{% endif %}
+B
+{% endif %}

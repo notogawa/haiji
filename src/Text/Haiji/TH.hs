@@ -38,17 +38,17 @@ haijiASTs asts = do
   [e| \ $(varP esc) $(varP dict) -> LT.concat $(listE $ map (haijiAST esc dict) asts) |]
 
 haijiAST :: Name -> Name -> AST -> ExpQ
-haijiAST _esc _dict (Literal l) =
-    [e| s |] where s = T.unpack l
-haijiAST  esc  dict (Deref x) =
+haijiAST esc dict (Literal l) =
+    [e| (\_ _ -> s) $(varE esc) $(varE dict) |] where s = T.unpack l
+haijiAST esc dict (Deref x) =
     [e| $(varE esc) $ toLT $ $(deref dict x) |]
-haijiAST  esc  dict (Condition p ts (Just fs)) =
+haijiAST esc dict (Condition p ts (Just fs)) =
     [e| (if $(deref dict p) then $(haijiASTs ts) else $(haijiASTs fs)) $(varE esc) $(varE dict) |]
-haijiAST  esc  dict (Condition p ts Nothing) =
+haijiAST esc dict (Condition p ts Nothing) =
     [e| (if $(deref dict p) then $(haijiASTs ts) else (\_ _ -> "")) $(varE esc) $(varE dict) |]
-haijiAST  esc  dict (Foreach k xs body) =
+haijiAST esc dict (Foreach k xs body) =
     [e| LT.concat $ map (\x -> $(haijiASTs body) $(varE esc) ($(varE dict) `merge` singleton x (Key :: Key $(litT . strTyLit $ show k)))) $(deref dict xs)|]
-haijiAST  esc  dict (Include file) =
+haijiAST esc dict (Include file) =
     [e| $(haijiFile file) $(varE esc) $(varE dict) |]
 
 class ToLT a where toLT :: a -> LT.Text
