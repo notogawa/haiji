@@ -1,6 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
-module Text.Haiji.TH ( haiji, haijiFile, haijiDict ) where
+module Text.Haiji.TH ( haiji, haijiFile, key ) where
 
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote
@@ -14,7 +14,7 @@ import Text.Haiji.Types
 haiji :: QuasiQuoter
 haiji = QuasiQuoter { quoteExp = haijiExp
                     , quotePat = undefined
-                    , quoteType = undefined
+                    , quoteType = haijiType
                     , quoteDec = undefined
                     }
 
@@ -24,12 +24,12 @@ haijiFile file = runIO (LT.readFile file) >>= haijiExp . LT.unpack
 haijiExp :: String -> ExpQ
 haijiExp = either error haijiASTs . parseOnly parser . T.pack
 
-haijiDict :: Q [Dec] -> ExpQ
-haijiDict = (>>= toDict) where
-  toDict [] = [e| Empty |]
-  toDict (dec:decs) = [e| $(dec2dict dec) `merge` $(toDict decs) |]
-  dec2dict (ValD (VarP name) (NormalB body) []) = [e| singleton $(return body) (Key :: Key $(litT . strTyLit . nameBase $ name ))|]
-  dec2dict _ = fail "invalid haijiDict"
+key :: QuasiQuoter
+key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . strTyLit $ k)) |]
+                  , quotePat = undefined
+                  , quoteType = undefined
+                  , quoteDec = undefined
+                  }
 
 haijiASTs :: [AST] -> ExpQ
 haijiASTs asts = do
@@ -65,3 +65,6 @@ deref dict (Attribute v f) =
     [e| retrieve $(deref dict v) (Key :: Key $(litT . strTyLit $ show f)) |]
 deref dict (At v ix) =
     [e| $(deref dict v) !! ix |]
+
+haijiType :: String -> TypeQ
+haijiType = undefined

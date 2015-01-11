@@ -8,7 +8,7 @@ module Text.Haiji
     , Template
     , haiji
     , haijiFile
-    , haijiDict
+    , key
     , merge
     ) where
 
