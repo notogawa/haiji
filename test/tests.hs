@@ -38,3 +38,13 @@ case_example = do
                              ] `merge`
            [key|foo|] (1 :: Int) `merge`
            [key|bar|] ("" :: String)
+
+case_variables :: Assertion
+case_variables = do
+  expected <- jinja2 HTML "test/variables.tmpl" dict
+  expected @=? render HTML dict $(haijiFile "test/variables.tmpl") where
+    dict = [key|foo|] ("normal" :: T.Text) `merge`
+           [key|_foo|] ("start '_'" :: LT.Text) `merge`
+           [key|Foo|] ("start upper case" :: T.Text) `merge`
+           [key|F__o_o__|] ("include '_'" :: String) `merge`
+           [key|F1a2b3c|] ("include num" :: String)
