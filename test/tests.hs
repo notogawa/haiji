@@ -85,3 +85,12 @@ case_foreach_shadowing = do
   False @=? ("bar" `LT.isInfixOf` expected) where
     dict = [key|foo|] ([0,2..10] :: [Int]) `merge`
            [key|bar|] ("bar" :: String)
+
+case_include :: Assertion
+case_include = do
+  testInclude ([0..10] :: [Int])
+  testInclude (["","\n","\n\n"] :: [String]) where
+    testInclude xs = do
+      expected <- jinja2 HTML dict "test/include.tmpl"
+      expected @=? render HTML dict $(haijiFile "test/include.tmpl") where
+        dict = [key|foo|] xs

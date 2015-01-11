@@ -21,6 +21,13 @@ haiji = QuasiQuoter { quoteExp = haijiExp
 haijiFile :: FilePath -> ExpQ
 haijiFile file = runIO (LT.readFile file) >>= haijiExp . LT.unpack
 
+haijiImportFile :: FilePath -> ExpQ
+haijiImportFile file = runIO (LT.readFile file) >>= haijiExp . LT.unpack . deleteTrailingOneLF where
+  deleteTrailingOneLF xs
+    | LT.null xs         = xs
+    | LT.last xs == '\n' = LT.init xs
+    | otherwise          = xs
+
 haijiExp :: String -> ExpQ
 haijiExp = either error haijiASTs . parseOnly parser . T.pack
 
@@ -49,7 +56,7 @@ haijiAST esc dict (Condition p ts Nothing) =
 haijiAST esc dict (Foreach k xs body) =
     [e| LT.concat $ map (\x -> $(haijiASTs body) $(varE esc) ($(varE dict) `merge` singleton x (Key :: Key $(litT . strTyLit $ show k)))) $(deref dict xs)|]
 haijiAST esc dict (Include file) =
-    [e| $(haijiFile file) $(varE esc) $(varE dict) |]
+    [e| $(haijiImportFile file) $(varE esc) $(varE dict) |]
 
 class ToLT a where toLT :: a -> LT.Text
 instance ToLT String  where toLT = LT.pack
