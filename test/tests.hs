@@ -103,3 +103,10 @@ case_include = do
       expected <- jinja2 HTML dict "test/include.tmpl"
       expected @=? render HTML dict $(haijiFile "test/include.tmpl") where
         dict = [key|foo|] xs
+
+case_raw :: Assertion
+case_raw = do
+  expected <- jinja2 HTML dict "test/raw.tmpl"
+  expected @=? render HTML dict $(haijiFile "test/raw.tmpl") where
+    dict = [key|foo|] ([0,2..10] :: [Int]) `merge`
+           [key|bar|] ("bar" :: String)
