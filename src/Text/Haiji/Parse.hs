@@ -29,6 +29,7 @@ data AST = Literal T.Text
          | Condition Variable [AST] (Maybe [AST])
          | Foreach Identifier Variable [AST]
          | Include FilePath
+         | Raw String
            deriving Eq
 
 instance Show AST where
@@ -42,6 +43,7 @@ instance Show AST where
                                concatMap show asts ++
                                "{% endfor %}"
     show (Include file) = "{% include \"" ++ file ++ "\" %}"
+    show (Raw raw) = "{% raw %}" ++ raw ++ "{% endraw %}"
 
 parser :: Parser [AST]
 parser = many $ choice [ literalParser
@@ -49,6 +51,7 @@ parser = many $ choice [ literalParser
                        , conditionParser
                        , foreachParser
                        , includeParser
+                       , rawParser
                        ]
 -- |
 --
@@ -221,3 +224,13 @@ foreachParser = do
 includeParser :: Parser AST
 includeParser = statement $ string "include" >> skipSpace >> Include . T.unpack <$> (quotedBy '"' <|> quotedBy '\'') where
     quotedBy c = char c *> takeTill (== c) <* char c -- TODO: ここもっとマジメにやらないと
+
+-- |
+--
+-- >>> parseOnly rawParser "{% raw %}test{% endraw %}"
+-- Right {% raw %}test{% endraw %}
+-- >>> parseOnly rawParser "{% raw %}{{ test }}{% endraw %}"
+-- Right {% raw %}{{ test }}{% endraw %}
+--
+rawParser :: Parser AST
+rawParser = Raw <$> (statement (string "raw") *> manyTill anyChar (statement $ string "endraw"))

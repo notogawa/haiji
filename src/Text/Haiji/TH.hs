@@ -60,6 +60,8 @@ haijiAST esc dict (Foreach k xs body) =
     [e| LT.concat $ map (\x -> $(haijiASTs body) $(varE esc) ($(varE dict) `merge` singleton x (Key :: Key $(litT . strTyLit $ show k)))) $(deref dict xs)|]
 haijiAST esc dict (Include file) =
     [e| $(haijiImportFile file) $(varE esc) $(varE dict) |]
+haijiAST esc dict (Raw raw) =
+    [e| (\_ _ -> raw) $(varE esc) $(varE dict) |]
 
 class ToLT a where toLT :: a -> LT.Text
 instance ToLT String  where toLT = LT.pack
