@@ -7,10 +7,12 @@ module Main where
 import Test.Tasty.TH
 import Test.Tasty.HUnit
 
+import Control.Monad
 import Text.Haiji
 import Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
+import qualified Data.Text.Lazy.IO as LT
 import System.Exit
 import System.Process.Text.Lazy
 
@@ -19,7 +21,8 @@ main = $(defaultMainGenerator)
 
 jinja2 :: Show a => Rendering -> a -> LT.Text -> IO LT.Text
 jinja2 rendering dict template = do
-  (ExitSuccess, out, _err) <- readProcessWithExitCode "python" [] script
+  (code, out, err) <- readProcessWithExitCode "python" [] script
+  unless (code == ExitSuccess) $ LT.putStrLn err
   return out where
     script = LT.unlines
              [ "import sys, codecs, json"
@@ -39,7 +42,7 @@ case_example = do
     dict = [key|a_variable|] ("Hello,World!" :: T.Text) `merge`
            [key|navigation|] [ [key|caption|] ("A" :: LT.Text) `merge`
                                [key|href|] ("content/a.html" :: String)
-                             , [key|caption|] ("&<>'\"\\" :: LT.Text) `merge`
+                             , [key|caption|] ("B" :: LT.Text) `merge`
                                [key|href|] ("content/b.html" :: String)
                              ] `merge`
            [key|foo|] (1 :: Int) `merge`
@@ -54,6 +57,12 @@ case_variables = do
            [key|Foo|] ("start upper case" :: T.Text) `merge`
            [key|F__o_o__|] ("include '_'" :: String) `merge`
            [key|F1a2b3c|] ("include num" :: String)
+
+case_HTML_escape :: Assertion
+case_HTML_escape = do
+  expected <- jinja2 HTML dict "test/HTML_escape.tmpl"
+  expected @=? render HTML dict $(haijiFile "test/HTML_escape.tmpl") where
+    dict = [key|foo|] ([' '..'\126'] :: String)
 
 case_condition :: Assertion
 case_condition = do
