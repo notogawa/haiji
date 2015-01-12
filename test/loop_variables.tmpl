@@ -1,0 +1,9 @@
+{% for bar in foo %}
+  {{ loop.index }}
+  {{ loop.index0 }}
+  {{ loop.revindex }}
+  {{ loop.revindex0 }}
+  {% if loop.first %}first{% endif %}
+  {% if loop.last %}last{% endif %}
+  {{ loop.length }}
+{% endfor %}"

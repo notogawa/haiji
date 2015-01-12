@@ -110,3 +110,9 @@ case_raw = do
   expected @=? render HTML dict $(haijiFile "test/raw.tmpl") where
     dict = [key|foo|] ([0,2..10] :: [Int]) `merge`
            [key|bar|] ("bar" :: String)
+
+case_loop_variables :: Assertion
+case_loop_variables = do
+  expected <- jinja2 HTML dict "test/loop_variables.tmpl"
+  expected @=? render HTML dict $(haijiFile "test/loop_variables.tmpl") where
+    dict = [key|foo|] ([0,2..10] :: [Integer])
