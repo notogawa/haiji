@@ -95,6 +95,12 @@ case_foreach_shadowing = do
     dict = [key|foo|] ([0,2..10] :: [Int]) `merge`
            [key|bar|] ("bar" :: String)
 
+case_foreach_else_block :: Assertion
+case_foreach_else_block = do
+  expected <- jinja2 HTML dict "test/foreach_else_block.tmpl"
+  expected @=? render HTML dict $(haijiFile "test/foreach_else_block.tmpl") where
+    dict = [key|foo|] ([] :: [Int])
+
 case_include :: Assertion
 case_include = do
   testInclude ([0..10] :: [Int])
