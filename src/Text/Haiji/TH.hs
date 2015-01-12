@@ -1,6 +1,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE TypeOperators #-}
 module Text.Haiji.TH ( haiji, haijiFile, key ) where
 
 import Language.Haskell.TH
@@ -60,21 +61,29 @@ haijiAST esc dict (Condition p ts Nothing) =
 haijiAST esc dict (Foreach k xs body) =
     [e| let dicts = $(deref dict xs)
             len = length dicts
-            loop ix = singleton (ix + 1) (Key :: Key "index") `merge`
-                      singleton ix (Key :: Key "index0") `merge`
-                      singleton (len - ix) (Key :: Key "revindex") `merge`
-                      singleton (len - ix - 1) (Key :: Key "revindex0") `merge`
-                      singleton (ix == 0) (Key :: Key "first") `merge`
-                      singleton (ix == len - 1) (Key :: Key "last") `merge`
-                      singleton len (Key :: Key "length")
         in LT.concat
-           $ map (\(ix, x) -> $(haijiASTs body) $(varE esc) ($(varE dict) `merge`
-                                                             singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
-                                                             singleton (loop ix) (Key :: Key "loop"))) $ zip [0..] dicts |]
+           $ map (\(ix, x) -> $(haijiASTs body)
+                              $(varE esc)
+                              ($(varE dict) `merge`
+                               singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
+                               singleton (loopVariables len ix) (Key :: Key "loop")))
+           $ zip [0..] dicts
+      |]
 haijiAST esc dict (Include file) =
     [e| $(haijiImportFile file) $(varE esc) $(varE dict) |]
 haijiAST esc dict (Raw raw) =
     [e| (\_ _ -> raw) $(varE esc) $(varE dict) |]
+
+loopVariables :: Int -> Int -> TLDict '["first" :-> Bool, "index" :-> Int, "index0" :-> Int, "last" :-> Bool, "length" :-> Int, "revindex" :-> Int, "revindex0" :-> Int]
+loopVariables len ix =
+  Ext (Value (ix == 0)       :: "first"     :-> Bool) $
+  Ext (Value (ix + 1)        :: "index"     :-> Int ) $
+  Ext (Value ix              :: "index0"    :-> Int ) $
+  Ext (Value (ix == len - 1) :: "last"      :-> Bool) $
+  Ext (Value len             :: "length"    :-> Int ) $
+  Ext (Value (len - ix)      :: "revindex"  :-> Int ) $
+  Ext (Value (len - ix - 1)  :: "revindex0" :-> Int ) $
+  Empty
 
 class ToLT a where toLT :: a -> LT.Text
 instance ToLT String  where toLT = LT.pack

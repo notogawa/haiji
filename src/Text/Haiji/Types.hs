@@ -16,6 +16,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Text.Haiji.Types
     ( TLDict(..)
+    , (:->)(..)
     , singleton
     , merge
     , Key(..)
