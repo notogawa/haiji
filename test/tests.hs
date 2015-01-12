@@ -31,7 +31,7 @@ jinja2 rendering dict template = do
              , "env = Environment(loader=PackageLoader('example', '.'),autoescape=" <> LT.pack (show $ rendering == HTML) <> ")"
              , "template = env.get_template('" <> template <> "')"
              , "object = json.loads(" <> LT.pack (show $ show dict) <> ")"
-             , "print template.render(object)"
+             , "print template.render(object),"
              , "exit()"
              ]
 

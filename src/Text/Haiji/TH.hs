@@ -19,11 +19,14 @@ haiji = QuasiQuoter { quoteExp = haijiExp
                     }
 
 haijiFile :: FilePath -> ExpQ
-haijiFile file = runIO (LT.readFile file) >>= haijiExp . LT.unpack
+haijiFile file = runIO (LT.readFile file) >>= haijiExp . LT.unpack . deleteLastOneLF where
+  deleteLastOneLF xs
+    | LT.pack "%}\n" `LT.isSuffixOf` xs = LT.init xs
+    | otherwise                         = xs
 
 haijiImportFile :: FilePath -> ExpQ
-haijiImportFile file = runIO (LT.readFile file) >>= haijiExp . LT.unpack . deleteTrailingOneLF where
-  deleteTrailingOneLF xs
+haijiImportFile file = runIO (LT.readFile file) >>= haijiExp . LT.unpack . deleteLastOneLF where
+  deleteLastOneLF xs
     | LT.null xs         = xs
     | LT.last xs == '\n' = LT.init xs
     | otherwise          = xs
