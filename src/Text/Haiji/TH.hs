@@ -1,5 +1,6 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE DataKinds #-}
 module Text.Haiji.TH ( haiji, haijiFile, key ) where
 
 import Language.Haskell.TH
@@ -57,7 +58,19 @@ haijiAST esc dict (Condition p ts (Just fs)) =
 haijiAST esc dict (Condition p ts Nothing) =
     [e| (if $(deref dict p) then $(haijiASTs ts) else (\_ _ -> "")) $(varE esc) $(varE dict) |]
 haijiAST esc dict (Foreach k xs body) =
-    [e| LT.concat $ map (\x -> $(haijiASTs body) $(varE esc) ($(varE dict) `merge` singleton x (Key :: Key $(litT . strTyLit $ show k)))) $(deref dict xs)|]
+    [e| let dicts = $(deref dict xs)
+            len = length dicts
+            loop ix = singleton (ix + 1) (Key :: Key "index") `merge`
+                      singleton ix (Key :: Key "index0") `merge`
+                      singleton (len - ix) (Key :: Key "revindex") `merge`
+                      singleton (len - ix - 1) (Key :: Key "revindex0") `merge`
+                      singleton (ix == 0) (Key :: Key "first") `merge`
+                      singleton (ix == len - 1) (Key :: Key "last") `merge`
+                      singleton len (Key :: Key "length")
+        in LT.concat
+           $ map (\(ix, x) -> $(haijiASTs body) $(varE esc) ($(varE dict) `merge`
+                                                             singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
+                                                             singleton (loop ix) (Key :: Key "loop"))) $ zip [0..] dicts |]
 haijiAST esc dict (Include file) =
     [e| $(haijiImportFile file) $(varE esc) $(varE dict) |]
 haijiAST esc dict (Raw raw) =
