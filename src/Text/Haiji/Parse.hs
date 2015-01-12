@@ -27,7 +27,7 @@ instance Show Variable where
 data AST = Literal T.Text
          | Deref Variable
          | Condition Variable [AST] (Maybe [AST])
-         | Foreach Identifier Variable [AST]
+         | Foreach Identifier Variable [AST] (Maybe [AST])
          | Include FilePath
          | Raw String
            deriving Eq
@@ -35,13 +35,16 @@ data AST = Literal T.Text
 instance Show AST where
     show (Literal l) = T.unpack l
     show (Deref v) = "{{ " ++ shows v " }}"
-    show (Condition p ts mfs) = "{% if " ++ show p ++ " %}" ++
-                                concatMap show ts ++
-                                maybe "" (\fs -> "{% else %}" ++ concatMap show fs) mfs ++
-                                "{% endif %}"
-    show (Foreach x xs asts) = "{% for " ++ show x ++ " in " ++ show xs ++ " %}" ++
-                               concatMap show asts ++
-                               "{% endfor %}"
+    show (Condition p ts mfs) =
+      "{% if " ++ show p ++ " %}" ++
+      concatMap show ts ++
+      maybe "" (\fs -> "{% else %}" ++ concatMap show fs) mfs ++
+      "{% endif %}"
+    show (Foreach x xs loopBody elseBody) =
+      "{% for " ++ show x ++ " in " ++ show xs ++ " %}" ++
+      concatMap show loopBody ++
+      maybe "" (("{% else %}" ++) . concatMap show) elseBody ++
+      "{% endfor %}"
     show (Include file) = "{% include \"" ++ file ++ "\" %}"
     show (Raw raw) = "{% raw %}" ++ raw ++ "{% endraw %}"
 
@@ -206,13 +209,18 @@ conditionParser = do
 --
 -- >>> parseOnly foreachParser "{% for _ in foo %}loop{% endfor %}"
 -- Right {% for _ in foo %}loop{% endfor %}
+-- >>> parseOnly foreachParser "{% for _ in foo %}loop{% else %}else block{% endfor %}"
+-- Right {% for _ in foo %}loop{% else %}else block{% endfor %}
 --
 foreachParser :: Parser AST
 foreachParser = do
-  foreachBlock <- statement $ Foreach
+  foreach <- statement $ Foreach
                   <$> (string "for" >> skipSpace >> identifier)
                   <*> (skipSpace >> string "in" >> skipSpace >> variableParser)
-  foreachBlock <$> parser <* statement (string "endfor")
+  loopBlock <- parser
+  elseBlock <- option Nothing (Just <$> (statement (string "else") *> parser))
+  _ <- statement (string "endfor")
+  foreach <$> return loopBlock  <*> return elseBlock
 
 -- |
 --

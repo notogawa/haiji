@@ -58,16 +58,18 @@ haijiAST esc dict (Condition p ts (Just fs)) =
     [e| (if $(deref dict p) then $(haijiASTs ts) else $(haijiASTs fs)) $(varE esc) $(varE dict) |]
 haijiAST esc dict (Condition p ts Nothing) =
     [e| (if $(deref dict p) then $(haijiASTs ts) else (\_ _ -> "")) $(varE esc) $(varE dict) |]
-haijiAST esc dict (Foreach k xs body) =
+haijiAST esc dict (Foreach k xs loopBody elseBody) =
     [e| let dicts = $(deref dict xs)
             len = length dicts
-        in LT.concat
-           $ map (\(ix, x) -> $(haijiASTs body)
-                              $(varE esc)
-                              ($(varE dict) `merge`
-                               singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
-                               singleton (loopVariables len ix) (Key :: Key "loop")))
-           $ zip [0..] dicts
+        in if 0 < len
+           then LT.concat
+                $ map (\(ix, x) -> $(haijiASTs loopBody)
+                                   $(varE esc)
+                                   ($(varE dict) `merge`
+                                    singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
+                                    singleton (loopVariables len ix) (Key :: Key "loop")))
+                $ zip [0..] dicts
+           else $(maybe [e| (\_ _ -> "") |] haijiASTs elseBody) $(varE esc) $(varE dict)
       |]
 haijiAST esc dict (Include file) =
     [e| $(haijiImportFile file) $(varE esc) $(varE dict) |]
