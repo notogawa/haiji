@@ -49,13 +49,17 @@ instance Show AST where
     show (Raw raw) = "{% raw %}" ++ raw ++ "{% endraw %}"
 
 parser :: Parser [AST]
-parser = many $ choice [ literalParser
-                       , derefParser
-                       , conditionParser
-                       , foreachParser
-                       , includeParser
-                       , rawParser
-                       ]
+parser = parser' <* endOfInput
+
+parser' :: Parser [AST]
+parser' = many $ choice [ literalParser
+                        , derefParser
+                        , conditionParser
+                        , foreachParser
+                        , includeParser
+                        , rawParser
+                        ]
+
 -- |
 --
 -- >>> parseOnly literalParser "テスト{test"
@@ -200,8 +204,8 @@ statement f = (string "{%" >> skipSpace) *> f <* (skipSpace >> string "%}")
 conditionParser :: Parser AST
 conditionParser = do
   cond <- statement $ string "if" >> skipSpace >> variableParser
-  ifbody <- parser
-  elsebody <- option Nothing (Just <$> (statement (string "else") *> parser))
+  ifbody <- parser'
+  elsebody <- option Nothing (Just <$> (statement (string "else") *> parser'))
   _ <- statement $ string "endif"
   return $ Condition cond ifbody elsebody
 
@@ -217,8 +221,8 @@ foreachParser = do
   foreach <- statement $ Foreach
                   <$> (string "for" >> skipSpace >> identifier)
                   <*> (skipSpace >> string "in" >> skipSpace >> variableParser)
-  loopBlock <- parser
-  elseBlock <- option Nothing (Just <$> (statement (string "else") *> parser))
+  loopBlock <- parser'
+  elseBlock <- option Nothing (Just <$> (statement (string "else") *> parser'))
   _ <- statement (string "endfor")
   foreach <$> return loopBlock  <*> return elseBlock
 
