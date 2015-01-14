@@ -196,6 +196,10 @@ statement f = (string "{%" >> skipSpace) *> f <* (skipSpace >> string "%}")
 --
 -- >>> parseOnly conditionParser "{% if foo %}テスト{% endif %}"
 -- Right {% if foo %}テスト{% endif %}
+-- >>> parseOnly conditionParser "{%if foo%}テスト{%endif%}"
+-- Right {% if foo %}テスト{% endif %}
+-- >>> parseOnly conditionParser "{% iffoo %}テスト{% endif %}"
+-- Left "Failed reading: satisfy"
 -- >>> parseOnly conditionParser "{% if foo %}真{% else %}偽{% endif %}"
 -- Right {% if foo %}真{% else %}偽{% endif %}
 -- >>> parseOnly conditionParser "{%if foo%}{%if bar%}{%else%}{%endif%}{%else%}{%if baz%}{%else%}{%endif%}{%endif%}"
@@ -203,7 +207,7 @@ statement f = (string "{%" >> skipSpace) *> f <* (skipSpace >> string "%}")
 --
 conditionParser :: Parser AST
 conditionParser = do
-  cond <- statement $ string "if" >> skipSpace >> variableParser
+  cond <- statement $ string "if" >> skipMany1 space >> variableParser
   ifbody <- parser'
   elsebody <- option Nothing (Just <$> (statement (string "else") *> parser'))
   _ <- statement $ string "endif"
@@ -213,14 +217,24 @@ conditionParser = do
 --
 -- >>> parseOnly foreachParser "{% for _ in foo %}loop{% endfor %}"
 -- Right {% for _ in foo %}loop{% endfor %}
+-- >>> parseOnly foreachParser "{%for _ in foo%}loop{%endfor%}"
+-- Right {% for _ in foo %}loop{% endfor %}
+-- >>> parseOnly foreachParser "{% for_ in foo %}loop{% endfor %}"
+-- Left "Failed reading: satisfy"
+-- >>> parseOnly foreachParser "{% for _in foo %}loop{% endfor %}"
+-- Left "Failed reading: takeWith"
+-- >>> parseOnly foreachParser "{% for _ infoo %}loop{% endfor %}"
+-- Left "Failed reading: satisfy"
 -- >>> parseOnly foreachParser "{% for _ in foo %}loop{% else %}else block{% endfor %}"
+-- Right {% for _ in foo %}loop{% else %}else block{% endfor %}
+-- >>> parseOnly foreachParser "{%for _ in foo%}loop{%else%}else block{%endfor%}"
 -- Right {% for _ in foo %}loop{% else %}else block{% endfor %}
 --
 foreachParser :: Parser AST
 foreachParser = do
   foreach <- statement $ Foreach
-                  <$> (string "for" >> skipSpace >> identifier)
-                  <*> (skipSpace >> string "in" >> skipSpace >> variableParser)
+                  <$> (string "for" >> skipMany1 space >> identifier)
+                  <*> (skipMany1 space >> string "in" >> skipMany1 space >> variableParser)
   loopBlock <- parser'
   elseBlock <- option Nothing (Just <$> (statement (string "else") *> parser'))
   _ <- statement (string "endfor")
@@ -229,6 +243,8 @@ foreachParser = do
 -- |
 --
 -- >>> parseOnly includeParser "{% include \"foo.tmpl\" %}"
+-- Right {% include "foo.tmpl" %}
+-- >>> parseOnly includeParser "{%include\"foo.tmpl\"%}"
 -- Right {% include "foo.tmpl" %}
 -- >>> parseOnly includeParser "{% include 'foo.tmpl' %}"
 -- Right {% include "foo.tmpl" %}
@@ -240,6 +256,8 @@ includeParser = statement $ string "include" >> skipSpace >> Include . T.unpack 
 -- |
 --
 -- >>> parseOnly rawParser "{% raw %}test{% endraw %}"
+-- Right {% raw %}test{% endraw %}
+-- >>> parseOnly rawParser "{%raw%}test{%endraw%}"
 -- Right {% raw %}test{% endraw %}
 -- >>> parseOnly rawParser "{% raw %}{{ test }}{% endraw %}"
 -- Right {% raw %}{{ test }}{% endraw %}
