@@ -122,3 +122,9 @@ case_loop_variables = do
   expected <- jinja2 HTML dict "test/loop_variables.tmpl"
   expected @=? render HTML dict $(haijiFile "test/loop_variables.tmpl") where
     dict = [key|foo|] ([0,2..10] :: [Integer])
+
+case_whitespace_control :: Assertion
+case_whitespace_control = do
+  expected <- jinja2 HTML dict "test/whitespace_control.tmpl"
+  expected @=? render HTML dict $(haijiFile "test/whitespace_control.tmpl") where
+    dict = [key|seq|] ([0,2..10] :: [Integer])
