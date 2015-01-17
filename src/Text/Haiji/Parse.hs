@@ -4,6 +4,8 @@ module Text.Haiji.Parse where
 import Control.Applicative
 import Control.Monad
 import Data.Attoparsec.Text
+import Data.Char
+import Data.Maybe
 import qualified Data.Text as T
 
 -- $setup
@@ -52,41 +54,53 @@ parser :: Parser [AST]
 parser = parser' <* endOfInput
 
 parser' :: Parser [AST]
-parser' = many $ choice [ literalParser
-                        , derefParser
-                        , conditionParser
-                        , foreachParser
-                        , includeParser
-                        , rawParser
-                        ]
+parser' = concat <$> (many $ choice [ (:[]) <$> literalParser
+                                    , (\(a, b) -> maybe id (:) a [b]) <$> derefParser
+                                    , (\(a, b) -> maybe id (:) a [b]) <$> conditionParser
+                                    , (\(a, b) -> maybe id (:) a [b]) <$> foreachParser
+                                    , (\(a, b) -> maybe id (:) a [b]) <$> includeParser
+                                    , (\(a, b) -> maybe id (:) a [b]) <$> rawParser
+                                    ])
 
 -- |
 --
 -- >>> parseOnly literalParser "テスト{test"
 -- Right テスト
+-- >>> parseOnly literalParser "   テスト  {test"
+-- Right    テスト
+-- >>> parseOnly literalParser "   テスト  {%-test"
+-- Right    テスト
 --
 literalParser :: Parser AST
-literalParser = Literal <$> takeWhile1 (/= '{')
+literalParser = do
+  sp <- many (satisfy isSpace)
+  pc <- peekChar
+  case pc of
+    Nothing  -> if null sp then fail "Failed reading: literalParser" else return (Literal $ T.pack sp)
+    Just '{' -> fail "Failed reading: literalParser"
+    _        -> Literal . T.pack . (sp ++) <$> many1 (satisfy (\c -> c /= '{' && not (isSpace c)))
 
 -- |
 --
 -- >>> parseOnly derefParser "{{ foo }}"
--- Right {{ foo }}
+-- Right (Nothing,{{ foo }})
 -- >>> parseOnly derefParser "{{bar}}"
--- Right {{ bar }}
+-- Right (Nothing,{{ bar }})
 -- >>> parseOnly derefParser "{{   baz}}"
--- Right {{ baz }}
+-- Right (Nothing,{{ baz }})
 -- >>> parseOnly derefParser " {{ foo }}"
--- Left "Failed reading: takeWith"
+-- Right (Just  ,{{ foo }})
 -- >>> parseOnly derefParser "{ { foo }}"
 -- Left "Failed reading: takeWith"
 -- >>> parseOnly derefParser "{{ foo } }"
 -- Left "Failed reading: takeWith"
 -- >>> parseOnly derefParser "{{ foo }} "
--- Right {{ foo }}
+-- Right (Nothing,{{ foo }})
 --
-derefParser :: Parser AST
-derefParser = Deref <$> ((string "{{" >> skipSpace) *> variableParser <* (skipSpace >> string "}}"))
+derefParser :: Parser (Maybe AST, AST)
+derefParser = do
+  preSpaces <- option Nothing (Just . Literal <$> takeWhile1 isSpace)
+  (,) preSpaces . Deref <$> ((string "{{" >> skipSpace) *> variableParser <* (skipSpace >> string "}}"))
 
 -- | python identifier
 --
@@ -189,78 +203,122 @@ variableParser = identifier >>= variableParser' . Simple where
         Just '[' -> (char '[' >> skipSpace) *> decimal <* (skipSpace >> char ']') >>= variableParser' . At v
         _        -> return v
 
-statement :: Parser a -> Parser a
-statement f = (string "{%" >> skipSpace) *> f <* (skipSpace >> string "%}")
+-- |
+--
+-- >>> parseOnly (statement $ return ()) "{%%}"
+-- Right (Nothing,())
+-- >>> parseOnly (statement $ return ()) "{% %}"
+-- Right (Nothing,())
+-- >>> parseOnly (statement $ return ()) " {% %} "
+-- Right (Just  ,())
+-- >>> parseOnly (statement $ return ()) " {%- -%} "
+-- Right (Nothing,())
+--
+statement :: Parser a -> Parser (Maybe AST, a)
+statement f = do
+  preSpaces <- option Nothing (Just . Literal <$> takeWhile1 isSpace)
+  ((string "{%" >> skipSpace) *> ((,) preSpaces <$> f) <* (skipSpace >> end)) <|> ((string "{%-" >> skipSpace) *> ((,) Nothing <$> f) <* (skipSpace >> end)) where
+    end = string "%}" <|> (string "-%}" <* skipSpace)
 
 -- |
 --
 -- >>> parseOnly conditionParser "{% if foo %}テスト{% endif %}"
--- Right {% if foo %}テスト{% endif %}
+-- Right (Nothing,{% if foo %}テスト{% endif %})
 -- >>> parseOnly conditionParser "{%if foo%}テスト{%endif%}"
--- Right {% if foo %}テスト{% endif %}
+-- Right (Nothing,{% if foo %}テスト{% endif %})
 -- >>> parseOnly conditionParser "{% iffoo %}テスト{% endif %}"
--- Left "Failed reading: satisfy"
+-- Left "Failed reading: takeWith"
 -- >>> parseOnly conditionParser "{% if foo %}真{% else %}偽{% endif %}"
--- Right {% if foo %}真{% else %}偽{% endif %}
+-- Right (Nothing,{% if foo %}真{% else %}偽{% endif %})
 -- >>> parseOnly conditionParser "{%if foo%}{%if bar%}{%else%}{%endif%}{%else%}{%if baz%}{%else%}{%endif%}{%endif%}"
--- Right {% if foo %}{% if bar %}{% else %}{% endif %}{% else %}{% if baz %}{% else %}{% endif %}{% endif %}
+-- Right (Nothing,{% if foo %}{% if bar %}{% else %}{% endif %}{% else %}{% if baz %}{% else %}{% endif %}{% endif %})
+-- >>> parseOnly conditionParser "    {% if foo %}テスト{% endif %}"
+-- Right (Just     ,{% if foo %}テスト{% endif %})
+-- >>> parseOnly conditionParser "    {%- if foo -%}    テスト    {%- endif -%}    "
+-- Right (Nothing,{% if foo %}テスト{% endif %})
 --
-conditionParser :: Parser AST
+conditionParser :: Parser (Maybe AST, AST)
 conditionParser = do
-  cond <- statement $ string "if" >> skipMany1 space >> variableParser
-  ifbody <- parser'
-  elsebody <- option Nothing (Just <$> (statement (string "else") *> parser'))
-  _ <- statement $ string "endif"
-  return $ Condition cond ifbody elsebody
+  (preIfSpaces, cond) <- statement $ string "if" >> skipMany1 space >> variableParser
+  ifBlock <- parser'
+  mElseBlock <- option Nothing (do (preElseSpaces, _) <- statement (string "else")
+                                   Just . (,) preElseSpaces <$> parser')
+  (preEndIfSpaces, _) <- statement $ string "endif"
+  return (preIfSpaces,
+          case mElseBlock of
+            Nothing                         -> Condition cond (ifBlock ++ maybeToList preEndIfSpaces) Nothing
+            Just (preElseSpaces, elseBlock) -> Condition cond (ifBlock ++ maybeToList preElseSpaces ) (Just $ elseBlock ++ maybeToList preEndIfSpaces)
+         )
 
 -- |
 --
 -- >>> parseOnly foreachParser "{% for _ in foo %}loop{% endfor %}"
--- Right {% for _ in foo %}loop{% endfor %}
+-- Right (Nothing,{% for _ in foo %}loop{% endfor %})
 -- >>> parseOnly foreachParser "{%for _ in foo%}loop{%endfor%}"
--- Right {% for _ in foo %}loop{% endfor %}
+-- Right (Nothing,{% for _ in foo %}loop{% endfor %})
 -- >>> parseOnly foreachParser "{% for_ in foo %}loop{% endfor %}"
--- Left "Failed reading: satisfy"
+-- Left "Failed reading: takeWith"
 -- >>> parseOnly foreachParser "{% for _in foo %}loop{% endfor %}"
 -- Left "Failed reading: takeWith"
 -- >>> parseOnly foreachParser "{% for _ infoo %}loop{% endfor %}"
--- Left "Failed reading: satisfy"
+-- Left "Failed reading: takeWith"
 -- >>> parseOnly foreachParser "{% for _ in foo %}loop{% else %}else block{% endfor %}"
--- Right {% for _ in foo %}loop{% else %}else block{% endfor %}
+-- Right (Nothing,{% for _ in foo %}loop{% else %}else block{% endfor %})
 -- >>> parseOnly foreachParser "{%for _ in foo%}loop{%else%}else block{%endfor%}"
--- Right {% for _ in foo %}loop{% else %}else block{% endfor %}
+-- Right (Nothing,{% for _ in foo %}loop{% else %}else block{% endfor %})
+-- >>> parseOnly foreachParser "  {% for _ in foo %}  loop  {% endfor %}  "
+-- Right (Just   ,{% for _ in foo %}  loop  {% endfor %})
+-- >>> parseOnly foreachParser "  {%- for _ in foo -%}  loop  {%- endfor -%}  "
+-- Right (Nothing,{% for _ in foo %}loop{% endfor %})
 --
-foreachParser :: Parser AST
+foreachParser :: Parser (Maybe AST, AST)
 foreachParser = do
-  foreach <- statement $ Foreach
-                  <$> (string "for" >> skipMany1 space >> identifier)
-                  <*> (skipMany1 space >> string "in" >> skipMany1 space >> variableParser)
+  (preForSpaces, foreach) <- statement $ Foreach
+                             <$> (string "for" >> skipMany1 space >> identifier)
+                             <*> (skipMany1 space >> string "in" >> skipMany1 space >> variableParser)
   loopBlock <- parser'
-  elseBlock <- option Nothing (Just <$> (statement (string "else") *> parser'))
-  _ <- statement (string "endfor")
-  foreach <$> return loopBlock  <*> return elseBlock
+  mElseBlock <- option Nothing (do (preElseSpaces, _) <- statement (string "else")
+                                   Just . (,) preElseSpaces <$> parser')
+  (preEndForSpaces, _) <- statement (string "endfor")
+  (,) preForSpaces <$> case mElseBlock of
+    Nothing                         -> foreach <$> return (loopBlock ++ maybeToList preEndForSpaces) <*> return Nothing
+    Just (preElseSpaces, elseBlock) -> foreach <$> return (loopBlock ++ maybeToList preElseSpaces  ) <*> return (Just $ elseBlock ++ maybeToList preEndForSpaces)
 
 -- |
 --
 -- >>> parseOnly includeParser "{% include \"foo.tmpl\" %}"
--- Right {% include "foo.tmpl" %}
+-- Right (Nothing,{% include "foo.tmpl" %})
 -- >>> parseOnly includeParser "{%include\"foo.tmpl\"%}"
--- Right {% include "foo.tmpl" %}
+-- Right (Nothing,{% include "foo.tmpl" %})
 -- >>> parseOnly includeParser "{% include 'foo.tmpl' %}"
--- Right {% include "foo.tmpl" %}
+-- Right (Nothing,{% include "foo.tmpl" %})
+-- >>> parseOnly includeParser "  {% include \"foo.tmpl\" %}"
+-- Right (Just   ,{% include "foo.tmpl" %})
+-- >>> parseOnly includeParser "  {%- include \"foo.tmpl\" -%}   "
+-- Right (Nothing,{% include "foo.tmpl" %})
 --
-includeParser :: Parser AST
+includeParser :: Parser (Maybe AST, AST)
 includeParser = statement $ string "include" >> skipSpace >> Include . T.unpack <$> (quotedBy '"' <|> quotedBy '\'') where
     quotedBy c = char c *> takeTill (== c) <* char c -- TODO: ここもっとマジメにやらないと
 
 -- |
 --
 -- >>> parseOnly rawParser "{% raw %}test{% endraw %}"
--- Right {% raw %}test{% endraw %}
+-- Right (Nothing,{% raw %}test{% endraw %})
 -- >>> parseOnly rawParser "{%raw%}test{%endraw%}"
--- Right {% raw %}test{% endraw %}
+-- Right (Nothing,{% raw %}test{% endraw %})
 -- >>> parseOnly rawParser "{% raw %}{{ test }}{% endraw %}"
--- Right {% raw %}{{ test }}{% endraw %}
+-- Right (Nothing,{% raw %}{{ test }}{% endraw %})
+-- >>> parseOnly rawParser "  {% raw %}  test  {% endraw %}"
+-- Right (Just   ,{% raw %}  test  {% endraw %})
+-- >>> parseOnly rawParser "  {%- raw -%}   test  {%- endraw -%}  "
+-- Right (Nothing,{% raw %}test{% endraw %})
 --
-rawParser :: Parser AST
-rawParser = Raw <$> (statement (string "raw") *> manyTill anyChar (statement $ string "endraw"))
+rawParser :: Parser (Maybe AST, AST)
+rawParser = do
+  (preRawSpaces, _) <- statement (string "raw")
+  (raw, (preEndRawSpaces, _)) <- till anyChar (statement $ string "endraw")
+  return (preRawSpaces, Raw $ raw ++ maybe "" show preEndRawSpaces) where
+    till :: Alternative f => f a -> f b -> f ([a], b)
+    till p end = go where
+      go = ((,) [] <$> end) <|> ((\a (as,b) -> (a:as, b)) <$> p <*> go)
