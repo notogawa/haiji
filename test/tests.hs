@@ -128,3 +128,9 @@ case_whitespace_control = do
   expected <- jinja2 HTML dict "test/whitespace_control.tmpl"
   expected @=? render HTML dict $(haijiFile "test/whitespace_control.tmpl") where
     dict = [key|seq|] ([0,2..10] :: [Integer])
+
+case_comment :: Assertion
+case_comment = do
+  expected <- jinja2 HTML dict "test/comment.tmpl"
+  expected @=? render HTML dict $(haijiFile "test/comment.tmpl") where
+    dict = [key|seq|] ([0,2..10] :: [Integer])
