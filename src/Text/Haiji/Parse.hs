@@ -73,15 +73,18 @@ parser' = concat <$> (many $ choice
 -- Right    テスト
 -- >>> parseOnly literalParser "   テスト  {%-test"
 -- Right    テスト
+-- >>> parseOnly literalParser "   テスト  テスト  {%-test"
+-- Right    テスト  テスト
 --
 literalParser :: Parser AST
-literalParser = do
-  sp <- many (satisfy isSpace)
-  pc <- peekChar
-  case pc of
-    Nothing  -> if null sp then fail "Failed reading: literalParser" else return (Literal $ T.pack sp)
-    Just '{' -> fail "Failed reading: literalParser"
-    _        -> Literal . T.pack . (sp ++) <$> many1 (satisfy (\c -> c /= '{' && not (isSpace c)))
+literalParser = Literal . T.concat <$> many1 go where
+  go = do
+    sp <- takeTill (not . isSpace)
+    pc <- peekChar
+    case pc of
+      Nothing  -> if T.null sp then fail "Failed reading: literalParser" else return sp
+      Just '{' -> fail "Failed reading: literalParser"
+      _        -> T.append sp <$> takeWhile1 (\c -> c /= '{' && not (isSpace c))
 
 -- |
 --
