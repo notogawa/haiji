@@ -54,13 +54,16 @@ parser :: Parser [AST]
 parser = parser' <* endOfInput
 
 parser' :: Parser [AST]
-parser' = concat <$> (many $ choice [ (:[]) <$> literalParser
-                                    , (\(a, b) -> maybe id (:) a [b]) <$> derefParser
-                                    , (\(a, b) -> maybe id (:) a [b]) <$> conditionParser
-                                    , (\(a, b) -> maybe id (:) a [b]) <$> foreachParser
-                                    , (\(a, b) -> maybe id (:) a [b]) <$> includeParser
-                                    , (\(a, b) -> maybe id (:) a [b]) <$> rawParser
-                                    ])
+parser' = concat <$> (many $ choice
+                      [ pure <$> literalParser
+                      , toList <$> derefParser
+                      , toList <$> conditionParser
+                      , toList <$> foreachParser
+                      , toList <$> includeParser
+                      , toList <$> rawParser
+                      , maybeToList <$> commentParser
+                      ]) where
+  toList (a, b) = maybe id (:) a [b]
 
 -- |
 --
@@ -322,3 +325,16 @@ rawParser = do
     till :: Alternative f => f a -> f b -> f ([a], b)
     till p end = go where
       go = ((,) [] <$> end) <|> ((\a (as,b) -> (a:as, b)) <$> p <*> go)
+
+-- |
+--
+-- >>> parseOnly commentParser "{# comment #}"
+-- Right Nothing
+-- >>> parseOnly commentParser "  {# comment #}"
+-- Right (Just   )
+--
+commentParser :: Parser (Maybe AST)
+commentParser = do
+  preSpaces <- option Nothing (Just . Literal <$> takeWhile1 isSpace)
+  _ <- string "{#" >> manyTill anyChar (string "#}")
+  return preSpaces
