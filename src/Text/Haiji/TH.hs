@@ -2,6 +2,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
+{-# LANGUAGE OverloadedStrings #-}
 module Text.Haiji.TH ( haiji, haijiFile, key ) where
 
 import Language.Haskell.TH
@@ -23,8 +24,10 @@ haiji = QuasiQuoter { quoteExp = haijiExp
 haijiFile :: FilePath -> ExpQ
 haijiFile file = runIO (LT.readFile file) >>= haijiExp . LT.unpack . deleteLastOneLF where
   deleteLastOneLF xs
-    | LT.pack "%}\n" `LT.isSuffixOf` xs = LT.init xs
-    | otherwise                         = xs
+    | "%}\n" `LT.isSuffixOf` xs     = LT.init xs
+    | "\n\n" `LT.isSuffixOf` xs     = LT.init xs
+    | not ("\n" `LT.isSuffixOf` xs) = xs `LT.append` "\n"
+    | otherwise                     = xs
 
 haijiImportFile :: FilePath -> ExpQ
 haijiImportFile file = runIO (LT.readFile file) >>= haijiExp . LT.unpack . deleteLastOneLF where
