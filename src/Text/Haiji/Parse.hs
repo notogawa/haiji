@@ -54,15 +54,15 @@ parser :: Parser [AST]
 parser = parser' <* endOfInput
 
 parser' :: Parser [AST]
-parser' = concat <$> (many $ choice
-                      [ pure <$> literalParser
-                      , toList <$> derefParser
-                      , toList <$> conditionParser
-                      , toList <$> foreachParser
-                      , toList <$> includeParser
-                      , toList <$> rawParser
-                      , maybeToList <$> commentParser
-                      ]) where
+parser' = concat <$> many (choice
+                           [ pure <$> literalParser
+                           , toList <$> derefParser
+                           , toList <$> conditionParser
+                           , toList <$> foreachParser
+                           , toList <$> includeParser
+                           , toList <$> rawParser
+                           , maybeToList <$> commentParser
+                           ]) where
   toList (a, b) = maybe id (:) a [b]
 
 -- |

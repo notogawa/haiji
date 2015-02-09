@@ -24,6 +24,7 @@ source-repository head
 library
   exposed-modules:     Text.Haiji
   other-modules:       Text.Haiji.Parse
+                       Text.Haiji.Rendering
                        Text.Haiji.TH
                        Text.Haiji.Types
   build-depends:       base >=4.7 && <4.9
