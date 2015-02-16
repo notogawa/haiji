@@ -3,8 +3,10 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
-module Text.Haiji.TH ( haiji, haijiFile, key ) where
+module Text.Haiji.TH ( haiji, haijiFile, key, HaijiParams(..) ) where
 
+import Control.Applicative
+import Control.Monad.Trans.Reader
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote
 import Language.Haskell.TH.Syntax
@@ -48,37 +50,37 @@ key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . 
                   }
 
 haijiASTs :: Quasi q => [AST] -> q Exp
-haijiASTs asts = runQ $ do
-  esc <- newName "esc"
-  dict <- newName "dict"
-  [e| \ $(varP esc) $(varP dict) -> LT.concat $(listE $ map (haijiAST esc dict) asts) |]
+haijiASTs asts = runQ [e| LT.concat <$> sequence $(listE $ map haijiAST asts) |]
 
-haijiAST :: Quasi q => Name -> Name -> AST -> q Exp
-haijiAST esc dict (Literal l) =
-    runQ [e| (\_ _ -> $(litE $ stringL $ T.unpack l)) $(varE esc) $(varE dict) |]
-haijiAST esc dict (Deref x) =
-    runQ [e| $(varE esc) $ toLT $ $(deref dict x) |]
-haijiAST esc dict (Condition p ts (Just fs)) =
-    runQ [e| (if $(deref dict p) then $(haijiASTs ts) else $(haijiASTs fs)) $(varE esc) $(varE dict) |]
-haijiAST esc dict (Condition p ts Nothing) =
-    runQ [e| (if $(deref dict p) then $(haijiASTs ts) else (\_ _ -> "")) $(varE esc) $(varE dict) |]
-haijiAST esc dict (Foreach k xs loopBody elseBody) =
-    runQ [e| let dicts = $(deref dict xs)
-                 len = length dicts
-             in if 0 < len
-                then LT.concat
-                     $ map (\(ix, x) -> $(haijiASTs loopBody)
-                                        $(varE esc)
-                                        ($(varE dict) `merge`
-                                         singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
-                                         singleton (loopVariables len ix) (Key :: Key "loop")))
-                     $ zip [0..] dicts
-                else $(maybe [e| (\_ _ -> "") |] haijiASTs elseBody) $(varE esc) $(varE dict)
+haijiAST :: Quasi q => AST -> q Exp
+haijiAST (Literal l) =
+    runQ [e| return $(litE $ stringL $ T.unpack l) |]
+haijiAST (Deref x) =
+    runQ [e| do esc <- asks haijiEscape
+                esc . toLT <$> $(deref x)
            |]
-haijiAST esc dict (Include file) =
-    runQ [e| $(haijiImportFile file) $(varE esc) $(varE dict) |]
-haijiAST esc dict (Raw raw) =
-    runQ [e| (\_ _ -> raw) $(varE esc) $(varE dict) |]
+haijiAST (Condition p ts fs) =
+    runQ [e| do cond <- $(deref p)
+                if cond then $(haijiASTs ts) else $(maybe [e| return "" |] haijiASTs fs)
+           |]
+haijiAST (Foreach k xs loopBody elseBody) =
+    runQ [e| do dicts <- $(deref xs)
+                p <- ask
+                let len = length dicts
+                if 0 < len
+                then return $ LT.concat
+                              [ runReader $(haijiASTs loopBody)
+                                HaijiParams { haijiEscape = haijiEscape p
+                                            , haijiDict = haijiDict p `merge`
+                                                          singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
+                                                          singleton (loopVariables len ix) (Key :: Key "loop")
+                                                          }
+                              | (ix, x) <- zip [0..] dicts
+                              ]
+                else $(maybe [e| return "" |] haijiASTs elseBody)
+           |]
+haijiAST (Include file) = haijiImportFile file
+haijiAST (Raw raw) = runQ [e| return raw |]
 
 loopVariables :: Int -> Int -> TLDict '["first" :-> Bool, "index" :-> Int, "index0" :-> Int, "last" :-> Bool, "length" :-> Int, "revindex" :-> Int, "revindex0" :-> Int]
 loopVariables len ix =
@@ -98,10 +100,12 @@ instance ToLT LT.Text where toLT = id
 instance ToLT Int     where toLT = toLT . show
 instance ToLT Integer where toLT = toLT . show
 
-deref :: Quasi q => Name -> Variable -> q Exp
-deref dict (Simple v) =
-    runQ [e| retrieve $(varE dict) (Key :: Key $(litT . strTyLit $ show v)) |]
-deref dict (Attribute v f) =
-    runQ [e| retrieve $(deref dict v) (Key :: Key $(litT . strTyLit $ show f)) |]
-deref dict (At v ix) =
-    runQ [e| $(deref dict v) !! ix |]
+data HaijiParams dict = HaijiParams { haijiDict :: dict, haijiEscape :: LT.Text -> LT.Text }
+
+deref :: Quasi q => Variable -> q Exp
+deref (Simple v) =
+    runQ [e| retrieve <$> asks haijiDict <*> return (Key :: Key $(litT . strTyLit $ show v)) |]
+deref (Attribute v f) =
+    runQ [e| retrieve <$> $(deref v) <*> return (Key :: Key $(litT . strTyLit $ show f)) |]
+deref (At v ix) =
+    runQ [e| (!! ix) <$> $(deref v) |]

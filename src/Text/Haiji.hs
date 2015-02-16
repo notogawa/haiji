@@ -12,13 +12,14 @@ module Text.Haiji
     , merge
     ) where
 
+import Control.Monad.Trans.Reader
 import Text.Haiji.TH
 import Text.Haiji.Types
 import Text.Haiji.Rendering
 import qualified Data.Text.Lazy as LT
 
 
-type Template require = (LT.Text -> LT.Text) -> TLDict require -> LT.Text
+type Template require = Reader (HaijiParams (TLDict require)) LT.Text
 
 render :: Rendering -> TLDict s -> Template s -> LT.Text
-render rendering dict template = template (escape rendering) dict
+render rendering dict template = runReader template $ HaijiParams dict (escape rendering)
