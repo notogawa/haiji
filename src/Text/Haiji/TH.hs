@@ -55,7 +55,7 @@ haijiASTs asts = runQ $ do
 
 haijiAST :: Quasi q => Name -> Name -> AST -> q Exp
 haijiAST esc dict (Literal l) =
-    runQ [e| (\_ _ -> s) $(varE esc) $(varE dict) |] where s = T.unpack l
+    runQ [e| (\_ _ -> $(litE $ stringL $ T.unpack l)) $(varE esc) $(varE dict) |]
 haijiAST esc dict (Deref x) =
     runQ [e| $(varE esc) $ toLT $ $(deref dict x) |]
 haijiAST esc dict (Condition p ts (Just fs)) =
