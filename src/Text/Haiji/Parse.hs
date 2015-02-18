@@ -32,6 +32,8 @@ data AST = Literal T.Text
          | Foreach Identifier Variable [AST] (Maybe [AST])
          | Include FilePath
          | Raw String
+         | Extends FilePath
+         | Block Identifier Bool [AST]
            deriving Eq
 
 instance Show AST where
@@ -49,6 +51,11 @@ instance Show AST where
       "{% endfor %}"
     show (Include file) = "{% include \"" ++ file ++ "\" %}"
     show (Raw raw) = "{% raw %}" ++ raw ++ "{% endraw %}"
+    show (Extends file) = "{% extends \"" ++ file ++ "\" %}"
+    show (Block name scoped body) =
+      "{% block " ++ show name ++ (if scoped then " scoped" else "") ++" %}" ++
+      concatMap show body ++
+      "{% endblock %}"
 
 parser :: Parser [AST]
 parser = parser' <* endOfInput
@@ -61,6 +68,8 @@ parser' = concat <$> many (choice
                            , toList <$> foreachParser
                            , toList <$> includeParser
                            , toList <$> rawParser
+                           , toList <$> extendsParser
+                           , toList <$> blockParser
                            , maybeToList <$> commentParser
                            ]) where
   toList (a, b) = maybe id (:) a [b]
@@ -246,14 +255,14 @@ statement f = do
 conditionParser :: Parser (Maybe AST, AST)
 conditionParser = do
   (preIfSpaces, cond) <- statement $ string "if" >> skipMany1 space >> variableParser
-  ifBlock <- parser'
-  mElseBlock <- option Nothing (do (preElseSpaces, _) <- statement (string "else")
-                                   Just . (,) preElseSpaces <$> parser')
+  ifPart <- parser'
+  mElsePart <- option Nothing (do (preElseSpaces, _) <- statement (string "else")
+                                  Just . (,) preElseSpaces <$> parser')
   (preEndIfSpaces, _) <- statement $ string "endif"
   return (preIfSpaces,
-          case mElseBlock of
-            Nothing                         -> Condition cond (ifBlock ++ maybeToList preEndIfSpaces) Nothing
-            Just (preElseSpaces, elseBlock) -> Condition cond (ifBlock ++ maybeToList preElseSpaces ) (Just $ elseBlock ++ maybeToList preEndIfSpaces)
+          case mElsePart of
+            Nothing                         -> Condition cond (ifPart ++ maybeToList preEndIfSpaces) Nothing
+            Just (preElseSpaces, elsePart) -> Condition cond (ifPart ++ maybeToList preElseSpaces ) (Just $ elsePart ++ maybeToList preEndIfSpaces)
          )
 
 -- |
@@ -282,13 +291,13 @@ foreachParser = do
   (preForSpaces, foreach) <- statement $ Foreach
                              <$> (string "for" >> skipMany1 space >> identifier)
                              <*> (skipMany1 space >> string "in" >> skipMany1 space >> variableParser)
-  loopBlock <- parser'
-  mElseBlock <- option Nothing (do (preElseSpaces, _) <- statement (string "else")
-                                   Just . (,) preElseSpaces <$> parser')
+  loopPart <- parser'
+  mElsePart <- option Nothing (do (preElseSpaces, _) <- statement (string "else")
+                                  Just . (,) preElseSpaces <$> parser')
   (preEndForSpaces, _) <- statement (string "endfor")
-  (,) preForSpaces <$> case mElseBlock of
-    Nothing                         -> foreach <$> return (loopBlock ++ maybeToList preEndForSpaces) <*> return Nothing
-    Just (preElseSpaces, elseBlock) -> foreach <$> return (loopBlock ++ maybeToList preElseSpaces  ) <*> return (Just $ elseBlock ++ maybeToList preEndForSpaces)
+  (,) preForSpaces <$> case mElsePart of
+    Nothing                         -> foreach <$> return (loopPart ++ maybeToList preEndForSpaces) <*> return Nothing
+    Just (preElseSpaces, elsePart) -> foreach <$> return (loopPart ++ maybeToList preElseSpaces  ) <*> return (Just $ elsePart ++ maybeToList preEndForSpaces)
 
 -- |
 --
@@ -328,6 +337,51 @@ rawParser = do
     till :: Alternative f => f a -> f b -> f ([a], b)
     till p end = go where
       go = ((,) [] <$> end) <|> ((\a (as,b) -> (a:as, b)) <$> p <*> go)
+
+-- |
+--
+-- >>> parseOnly extendsParser "{% extends \"foo.tmpl\" %}"
+-- Right (Nothing,{% extends "foo.tmpl" %})
+-- >>> parseOnly extendsParser "{%extends\"foo.tmpl\"%}"
+-- Right (Nothing,{% extends "foo.tmpl" %})
+-- >>> parseOnly extendsParser "{% extends 'foo.tmpl' %}"
+-- Right (Nothing,{% extends "foo.tmpl" %})
+-- >>> parseOnly extendsParser "  {% extends \"foo.tmpl\" %}"
+-- Right (Just   ,{% extends "foo.tmpl" %})
+-- >>> parseOnly extendsParser "  {%- extends \"foo.tmpl\" -%}   "
+-- Right (Nothing,{% extends "foo.tmpl" %})
+--
+extendsParser :: Parser (Maybe AST, AST)
+extendsParser = statement $ string "extends" >> skipSpace >> Extends . T.unpack <$> (quotedBy '"' <|> quotedBy '\'') where
+    quotedBy c = char c *> takeTill (== c) <* char c -- TODO: ここもっとマジメにやらないと
+
+-- |
+--
+-- >>> parseOnly blockParser "{% block foo %}テスト{% endblock %}"
+-- Right (Nothing,{% block foo %}テスト{% endblock %})
+-- >>> parseOnly blockParser "{% block foo %}テスト{% endblock foo %}"
+-- Right (Nothing,{% block foo %}テスト{% endblock %})
+-- >>> parseOnly blockParser "{% block foo %}テスト{% endblock bar %}"
+-- Left "Failed reading: blockParser"
+-- >>> parseOnly blockParser "{%block foo%}テスト{%endblock%}"
+-- Right (Nothing,{% block foo %}テスト{% endblock %})
+-- >>> parseOnly blockParser "{% blockfoo %}テスト{% endblock %}"
+-- Left "Failed reading: takeWith"
+-- >>> parseOnly blockParser "    {% block foo %}テスト{% endblock %}"
+-- Right (Just     ,{% block foo %}テスト{% endblock %})
+-- >>> parseOnly blockParser "    {%- block foo -%}    テスト    {%- endblock -%}    "
+-- Right (Nothing,{% block foo %}テスト{% endblock %})
+-- >>> parseOnly blockParser "    {%- block foo -%}    テスト    {%- endblock -%}    "
+-- Right (Nothing,{% block foo %}テスト{% endblock %})
+--
+blockParser :: Parser (Maybe AST, AST)
+blockParser = do
+  (preBlockSpaces, name) <- statement $ string "block" >> skipMany1 space >> identifier
+  body <- parser'
+  (preEndBlockSpaces, mayEndName) <- statement $ string "endblock" >> option Nothing (Just <$> (skipMany1 space >> identifier))
+  if maybe True (name ==) mayEndName
+    then return (preBlockSpaces, Block name False (body ++ maybeToList preEndBlockSpaces))
+    else fail "blockParser"
 
 -- |
 --
