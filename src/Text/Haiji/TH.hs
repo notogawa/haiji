@@ -54,31 +54,31 @@ haijiASTs asts = runQ [e| LT.concat <$> sequence $(listE $ map haijiAST asts) |]
 
 haijiAST :: Quasi q => AST -> q Exp
 haijiAST (Literal l) =
-    runQ [e| return $(litE $ stringL $ T.unpack l) |]
+  runQ [e| return $(litE $ stringL $ T.unpack l) |]
 haijiAST (Deref x) =
-    runQ [e| do esc <- asks haijiEscape
-                esc . toLT <$> $(deref x)
-           |]
+  runQ [e| do esc <- asks haijiEscape
+              esc . toLT <$> $(deref x)
+         |]
 haijiAST (Condition p ts fs) =
-    runQ [e| do cond <- $(deref p)
-                if cond then $(haijiASTs ts) else $(maybe [e| return "" |] haijiASTs fs)
-           |]
+  runQ [e| do cond <- $(deref p)
+              if cond then $(haijiASTs ts) else $(maybe [e| return "" |] haijiASTs fs)
+         |]
 haijiAST (Foreach k xs loopBody elseBody) =
-    runQ [e| do dicts <- $(deref xs)
-                p <- ask
-                let len = length dicts
-                if 0 < len
-                then return $ LT.concat
-                              [ runReader $(haijiASTs loopBody)
-                                HaijiParams { haijiEscape = haijiEscape p
-                                            , haijiDict = haijiDict p `merge`
-                                                          singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
-                                                          singleton (loopVariables len ix) (Key :: Key "loop")
-                                                          }
-                              | (ix, x) <- zip [0..] dicts
-                              ]
-                else $(maybe [e| return "" |] haijiASTs elseBody)
-           |]
+  runQ [e| do dicts <- $(deref xs)
+              p <- ask
+              let len = length dicts
+              if 0 < len
+              then return $ LT.concat
+                            [ runReader $(haijiASTs loopBody)
+                              HaijiParams { haijiEscape = haijiEscape p
+                                          , haijiDict = haijiDict p `merge`
+                                                        singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
+                                                        singleton (loopVariables len ix) (Key :: Key "loop")
+                                                        }
+                            | (ix, x) <- zip [0..] dicts
+                            ]
+              else $(maybe [e| return "" |] haijiASTs elseBody)
+         |]
 haijiAST (Include file) = haijiImportFile file
 haijiAST (Raw raw) = runQ [e| return raw |]
 
@@ -104,8 +104,8 @@ data HaijiParams dict = HaijiParams { haijiDict :: dict, haijiEscape :: LT.Text 
 
 deref :: Quasi q => Variable -> q Exp
 deref (Simple v) =
-    runQ [e| retrieve <$> asks haijiDict <*> return (Key :: Key $(litT . strTyLit $ show v)) |]
+  runQ [e| retrieve <$> asks haijiDict <*> return (Key :: Key $(litT . strTyLit $ show v)) |]
 deref (Attribute v f) =
-    runQ [e| retrieve <$> $(deref v) <*> return (Key :: Key $(litT . strTyLit $ show f)) |]
+  runQ [e| retrieve <$> $(deref v) <*> return (Key :: Key $(litT . strTyLit $ show f)) |]
 deref (At v ix) =
-    runQ [e| (!! ix) <$> $(deref v) |]
+  runQ [e| (!! ix) <$> $(deref v) |]

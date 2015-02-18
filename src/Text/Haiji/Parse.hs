@@ -22,9 +22,9 @@ data Variable = Simple Identifier -- TODO: これだけ別の型にしておき�
                 deriving Eq
 
 instance Show Variable where
-    show (Simple v) = show v
-    show (Attribute v f) = shows v "." ++ show f
-    show (At v ix) = shows v "[" ++ show ix ++ "]"
+  show (Simple v) = show v
+  show (Attribute v f) = shows v "." ++ show f
+  show (At v ix) = shows v "[" ++ show ix ++ "]"
 
 data AST = Literal T.Text
          | Deref Variable
@@ -37,25 +37,25 @@ data AST = Literal T.Text
            deriving Eq
 
 instance Show AST where
-    show (Literal l) = T.unpack l
-    show (Deref v) = "{{ " ++ shows v " }}"
-    show (Condition p ts mfs) =
-      "{% if " ++ show p ++ " %}" ++
-      concatMap show ts ++
-      maybe "" (\fs -> "{% else %}" ++ concatMap show fs) mfs ++
-      "{% endif %}"
-    show (Foreach x xs loopBody elseBody) =
-      "{% for " ++ show x ++ " in " ++ show xs ++ " %}" ++
-      concatMap show loopBody ++
-      maybe "" (("{% else %}" ++) . concatMap show) elseBody ++
-      "{% endfor %}"
-    show (Include file) = "{% include \"" ++ file ++ "\" %}"
-    show (Raw raw) = "{% raw %}" ++ raw ++ "{% endraw %}"
-    show (Extends file) = "{% extends \"" ++ file ++ "\" %}"
-    show (Block name scoped body) =
-      "{% block " ++ show name ++ (if scoped then " scoped" else "") ++" %}" ++
-      concatMap show body ++
-      "{% endblock %}"
+  show (Literal l) = T.unpack l
+  show (Deref v) = "{{ " ++ shows v " }}"
+  show (Condition p ts mfs) =
+    "{% if " ++ show p ++ " %}" ++
+    concatMap show ts ++
+    maybe "" (\fs -> "{% else %}" ++ concatMap show fs) mfs ++
+    "{% endif %}"
+  show (Foreach x xs loopBody elseBody) =
+    "{% for " ++ show x ++ " in " ++ show xs ++ " %}" ++
+    concatMap show loopBody ++
+    maybe "" (("{% else %}" ++) . concatMap show) elseBody ++
+    "{% endfor %}"
+  show (Include file) = "{% include \"" ++ file ++ "\" %}"
+  show (Raw raw) = "{% raw %}" ++ raw ++ "{% endraw %}"
+  show (Extends file) = "{% extends \"" ++ file ++ "\" %}"
+  show (Block name scoped body) =
+    "{% block " ++ show name ++ (if scoped then " scoped" else "") ++" %}" ++
+    concatMap show body ++
+    "{% endblock %}"
 
 parser :: Parser [AST]
 parser = parser' <* endOfInput
@@ -207,16 +207,16 @@ keywords = words
 --
 variableParser :: Parser Variable
 variableParser = identifier >>= variableParser' . Simple where
-    variableParser' v = do
-      skipSpace
-      peek <- peekChar
-      case peek of
-        Nothing  -> return v
-        Just '}' -> return v
-        Just ' ' -> return v
-        Just '.' -> char '.' >> skipSpace >> identifier >>= variableParser' . Attribute v
-        Just '[' -> (char '[' >> skipSpace) *> decimal <* (skipSpace >> char ']') >>= variableParser' . At v
-        _        -> return v
+  variableParser' v = do
+    skipSpace
+    peek <- peekChar
+    case peek of
+      Nothing  -> return v
+      Just '}' -> return v
+      Just ' ' -> return v
+      Just '.' -> char '.' >> skipSpace >> identifier >>= variableParser' . Attribute v
+      Just '[' -> (char '[' >> skipSpace) *> decimal <* (skipSpace >> char ']') >>= variableParser' . At v
+      _        -> return v
 
 -- |
 --
@@ -261,7 +261,7 @@ conditionParser = do
   (preEndIfSpaces, _) <- statement $ string "endif"
   return (preIfSpaces,
           case mElsePart of
-            Nothing                         -> Condition cond (ifPart ++ maybeToList preEndIfSpaces) Nothing
+            Nothing                        -> Condition cond (ifPart ++ maybeToList preEndIfSpaces) Nothing
             Just (preElseSpaces, elsePart) -> Condition cond (ifPart ++ maybeToList preElseSpaces ) (Just $ elsePart ++ maybeToList preEndIfSpaces)
          )
 
@@ -296,7 +296,7 @@ foreachParser = do
                                   Just . (,) preElseSpaces <$> parser')
   (preEndForSpaces, _) <- statement (string "endfor")
   (,) preForSpaces <$> case mElsePart of
-    Nothing                         -> foreach <$> return (loopPart ++ maybeToList preEndForSpaces) <*> return Nothing
+    Nothing                        -> foreach <$> return (loopPart ++ maybeToList preEndForSpaces) <*> return Nothing
     Just (preElseSpaces, elsePart) -> foreach <$> return (loopPart ++ maybeToList preElseSpaces  ) <*> return (Just $ elsePart ++ maybeToList preEndForSpaces)
 
 -- |
@@ -353,7 +353,7 @@ rawParser = do
 --
 extendsParser :: Parser (Maybe AST, AST)
 extendsParser = statement $ string "extends" >> skipSpace >> Extends . T.unpack <$> (quotedBy '"' <|> quotedBy '\'') where
-    quotedBy c = char c *> takeTill (== c) <* char c -- TODO: ここもっとマジメにやらないと
+  quotedBy c = char c *> takeTill (== c) <* char c -- TODO: ここもっとマジメにやらないと
 
 -- |
 --

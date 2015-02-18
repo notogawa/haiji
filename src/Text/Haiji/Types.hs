@@ -15,13 +15,13 @@
 #endif
 {-# LANGUAGE ScopedTypeVariables #-}
 module Text.Haiji.Types
-    ( TLDict(..)
-    , (:->)(..)
-    , singleton
-    , merge
-    , Key(..)
-    , retrieve
-    ) where
+       ( TLDict(..)
+       , (:->)(..)
+       , singleton
+       , merge
+       , Key(..)
+       , retrieve
+       ) where
 
 import Data.Aeson
 import Data.Monoid
@@ -50,23 +50,23 @@ key :: KnownSymbol k => k :-> v -> String
 key = symbolVal . VK
 
 class Retrieve d k v where
-    retrieve :: d -> Key k -> v
+  retrieve :: d -> Key k -> v
 #if MIN_VERSION_base(4,8,0)
 instance {-# OVERLAPPABLE #-} (IsTLDict d, IsTLDict (kv ': d), Retrieve (TLDict d) k v) => Retrieve (TLDict (kv ': d)) k v where
 #else
 instance                      (IsTLDict d, IsTLDict (kv ': d), Retrieve (TLDict d) k v) => Retrieve (TLDict (kv ': d)) k v where
 #endif
-    retrieve (Ext _ d) k = retrieve d k
+  retrieve (Ext _ d) k = retrieve d k
 #if MIN_VERSION_base(4,8,0)
 instance {-# OVERLAPPING #-} (IsTLDict d, IsTLDict (((k :-> v') ': d)), v' ~ v) => Retrieve (TLDict ((k :-> v') ': d)) k v where
 #else
 instance                     (IsTLDict d, IsTLDict (((k :-> v') ': d)), v' ~ v) => Retrieve (TLDict ((k :-> v') ': d)) k v where
 #endif
-    retrieve (Ext (Value v) _) _ = v
+  retrieve (Ext (Value v) _) _ = v
 
 data TLDict (kv :: [*]) where
-    Empty :: TLDict '[]
-    Ext :: k :-> v -> TLDict d -> TLDict ((k :-> v) ': d)
+  Empty :: TLDict '[]
+  Ext :: k :-> v -> TLDict d -> TLDict ((k :-> v) ': d)
 
 instance ToJSON (TLDict '[]) where
   toJSON Empty = object []
@@ -97,8 +97,8 @@ merge a b = asTLDict $ append a b
 type Mergeable a b = (Sortable (a :++ b), Normalizable (Sort (a :++ b)))
 
 type family Append (xs :: [k]) (ys :: [k]) :: [k] where
-    Append '[] ys = ys
-    Append (x ': xs) ys = x ': Append xs ys
+  Append '[] ys = ys
+  Append (x ': xs) ys = x ': Append xs ys
 
 type (xs :: [k]) :++ (ys :: [k]) = Append xs ys
 
@@ -107,33 +107,33 @@ append Empty ys = ys
 append (Ext x xs) ys = Ext x (append xs ys)
 
 type family Normalize d :: [*] where
-    Normalize '[]           = '[]
-    Normalize '[kv]         = '[kv]
-    Normalize ((k :-> v1) ': (k :-> v2) ': d) = Normalize ((k :-> v2) ': d) -- select last one
-    Normalize (kv1 ': kv2 ': d) = kv1 ': Normalize (kv2 ': d)
+  Normalize '[]           = '[]
+  Normalize '[kv]         = '[kv]
+  Normalize ((k :-> v1) ': (k :-> v2) ': d) = Normalize ((k :-> v2) ': d) -- select last one
+  Normalize (kv1 ': kv2 ': d) = kv1 ': Normalize (kv2 ': d)
 
 class Normalizable d where
-    normalize :: TLDict d -> TLDict (Normalize d)
+  normalize :: TLDict d -> TLDict (Normalize d)
 instance Normalizable '[] where
-    normalize d = d
+  normalize d = d
 instance Normalizable '[kv] where
-    normalize d = d
+  normalize d = d
 #if MIN_VERSION_base(4,8,0)
 instance {-# OVERLAPPABLE #-} (Normalize (x ': y ': d) ~ (x ': Normalize (y ': d)), Normalizable (y ': d)) => Normalizable (x ': y ': d) where
 #else
 instance                      (Normalize (x ': y ': d) ~ (x ': Normalize (y ': d)), Normalizable (y ': d)) => Normalizable (x ': y ': d) where
 #endif
-    normalize (Ext x d) = Ext x (normalize d)
+  normalize (Ext x d) = Ext x (normalize d)
 #if MIN_VERSION_base(4,8,0)
 instance {-# OVERLAPPING #-} Normalizable ((k :-> v2) ': d) => Normalizable ((k :-> v1) ': (k :-> v2) ': d) where
 #else
 instance                     Normalizable ((k :-> v2) ': d) => Normalizable ((k :-> v1) ': (k :-> v2) ': d) where
 #endif
-    normalize (Ext _ d) = normalize d
+  normalize (Ext _ d) = normalize d
 
 type family Sort (xs :: [k]) :: [k] where
-    Sort '[]       = '[]
-    Sort (x ': xs) = Sort (Filter 'FMin x xs) :++ '[x] :++ Sort (Filter 'FMax x xs)
+  Sort '[]       = '[]
+  Sort (x ': xs) = Sort (Filter 'FMin x xs) :++ '[x] :++ Sort (Filter 'FMax x xs)
 
 data Flag = FMin | FMax
 
@@ -141,46 +141,45 @@ type family Cmp (a :: k) (b :: k) :: Ordering
 type instance Cmp (k1 :-> v1) (k2 :-> v2) = CmpSymbol k1 k2
 
 type family Filter (f :: Flag) (p :: k) (xs :: [k]) :: [k] where
-    Filter f    p '[]       = '[]
-    Filter 'FMin p (x ': xs) = If (Cmp x p == 'LT) (x ': Filter 'FMin p xs) (Filter 'FMin p xs)
-    Filter 'FMax p (x ': xs) = If (Cmp x p == 'GT || Cmp x p == 'EQ) (x ': Filter 'FMax p xs) (Filter 'FMax p xs)
+  Filter f    p '[]       = '[]
+  Filter 'FMin p (x ': xs) = If (Cmp x p == 'LT) (x ': Filter 'FMin p xs) (Filter 'FMin p xs)
+  Filter 'FMax p (x ': xs) = If (Cmp x p == 'GT || Cmp x p == 'EQ) (x ': Filter 'FMax p xs) (Filter 'FMax p xs)
 
 class Sortable xs where
-    quicksort :: TLDict xs -> TLDict (Sort xs)
+  quicksort :: TLDict xs -> TLDict (Sort xs)
 instance Sortable '[] where
-    quicksort Empty = Empty
+  quicksort Empty = Empty
 instance ( Sortable (Filter 'FMin p xs)
          , Sortable (Filter 'FMax p xs)
          , FilterV 'FMin p xs
          , FilterV 'FMax p xs) => Sortable (p ': xs) where
-    quicksort (Ext p xs) = quicksort (less p xs) `append`
-                           Ext p Empty           `append`
-                           quicksort (more p xs)
-        where
-          less = filterV (Proxy :: Proxy 'FMin)
-          more = filterV (Proxy :: Proxy 'FMax)
+  quicksort (Ext p xs) = quicksort (less p xs) `append`
+                         Ext p Empty           `append`
+                         quicksort (more p xs) where
+    less = filterV (Proxy :: Proxy 'FMin)
+    more = filterV (Proxy :: Proxy 'FMax)
 
 class FilterV (f::Flag) p xs where
-    filterV :: Proxy f -> p -> TLDict xs -> TLDict (Filter f p xs)
+  filterV :: Proxy f -> p -> TLDict xs -> TLDict (Filter f p xs)
 instance FilterV f p '[] where
-    filterV _ _ _ = Empty
+  filterV _ _ _ = Empty
 
 class Conder g where
-    cond :: Proxy g -> TLDict s -> TLDict t -> TLDict (If g s t)
+  cond :: Proxy g -> TLDict s -> TLDict t -> TLDict (If g s t)
 instance Conder 'True where
-    cond _ s _ = s
+  cond _ s _ = s
 instance Conder 'False where
-    cond _ _ t = t
+  cond _ _ t = t
 
 instance (Conder (Cmp x p == 'LT), FilterV 'FMin p xs) => FilterV 'FMin p (x ': xs) where
-    filterV f@Proxy p (Ext x xs) =
-        cond
-        (Proxy :: Proxy (Cmp x p == 'LT))
-        (Ext x (filterV f p xs))
-        (filterV f p xs)
+  filterV f@Proxy p (Ext x xs) =
+    cond
+    (Proxy :: Proxy (Cmp x p == 'LT))
+    (Ext x (filterV f p xs))
+    (filterV f p xs)
 instance (Conder (Cmp x p == 'GT || Cmp x p == 'EQ), FilterV 'FMax p xs) => FilterV 'FMax p (x ': xs) where
-    filterV f@Proxy p (Ext x xs) =
-        cond
-        (Proxy :: Proxy (Cmp x p == 'GT || Cmp x p == 'EQ))
-        (Ext x (filterV f p xs))
-        (filterV f p xs)
+  filterV f@Proxy p (Ext x xs) =
+    cond
+    (Proxy :: Proxy (Cmp x p == 'GT || Cmp x p == 'EQ))
+    (Ext x (filterV f p xs))
+    (filterV f p xs)
