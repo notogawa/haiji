@@ -90,9 +90,16 @@ execHaijiParser p = snd <$> runHaijiParser p
 liftParser :: Parser a -> HaijiParser a
 liftParser = HaijiParser . lift
 
-keepLeadingSpaces :: HaijiParser ()
-keepLeadingSpaces = liftParser leadingSpaces >>= setLeadingSpaces where
+saveLeadingSpaces :: HaijiParser ()
+saveLeadingSpaces = liftParser leadingSpaces >>= setLeadingSpaces where
   leadingSpaces = option Nothing (Just . Literal <$> takeWhile1 isSpace)
+
+preserveCurrentLeadingSpaces :: HaijiParser a -> HaijiParser a
+preserveCurrentLeadingSpaces p = do
+  leadingSpaces <- getLeadingSpaces
+  a <- p
+  setLeadingSpaces leadingSpaces
+  return a
 
 setLeadingSpaces :: Maybe AST -> HaijiParser ()
 setLeadingSpaces ss = modify (\s -> s { haijiParserStateLeadingSpaces = ss })
@@ -168,7 +175,7 @@ literalParser = liftParser $ Literal . T.concat <$> many1 go where
 --
 derefParser :: HaijiParser AST
 derefParser = do
-  keepLeadingSpaces
+  saveLeadingSpaces
   liftParser $ Deref <$> ((string "{{" >> skipSpace) *> variableParser <* (skipSpace >> string "}}"))
 
 -- | python identifier
@@ -286,10 +293,10 @@ variableParser = identifier >>= variableParser' . Simple where
 statement :: Parser a -> HaijiParser a
 statement f = withLeadingSpaces <|> skipLeadingSpaces where
   withLeadingSpaces = do
-    keepLeadingSpaces
+    saveLeadingSpaces
     liftParser $ (string "{%" >> skipSpace) *> f <* (skipSpace >> end)
   skipLeadingSpaces = do
-    keepLeadingSpaces
+    saveLeadingSpaces
     resetLeadingSpaces
     liftParser $ (string "{%-" >> skipSpace) *> f <* (skipSpace >> end)
   end = string "%}" <|> (string "-%}" <* skipSpace)
@@ -320,25 +327,19 @@ statement f = withLeadingSpaces <|> skipLeadingSpaces where
 conditionParser :: HaijiParser AST
 conditionParser = do
   cond <- statement $ string "if" >> skipMany1 space >> variableParser
-  leadingIfSpaces <- getLeadingSpaces
-  ifPart <- parser'
-  mElsePart <- mayElseParser
-  leadingElseSpaces <- getLeadingSpaces
-  _ <- statement $ string "endif"
-  leadingEndIfSpaces <- getLeadingSpaces
-  setLeadingSpaces leadingIfSpaces
-  return $ case mElsePart of
-    Nothing       -> Condition cond (ifPart ++ maybeToList leadingEndIfSpaces) Nothing
-    Just elsePart -> Condition cond (ifPart ++ maybeToList leadingElseSpaces ) (Just $ elsePart ++ maybeToList leadingEndIfSpaces)
+  preserveCurrentLeadingSpaces $ do
+    ifPart <- parser'
+    mElsePart <- mayElseParser
+    leadingElseSpaces <- getLeadingSpaces
+    _ <- statement $ string "endif"
+    leadingEndIfSpaces <- getLeadingSpaces
+    return $ case mElsePart of
+      Nothing       -> Condition cond (ifPart ++ maybeToList leadingEndIfSpaces) Nothing
+      Just elsePart -> Condition cond (ifPart ++ maybeToList leadingElseSpaces ) (Just $ elsePart ++ maybeToList leadingEndIfSpaces)
 
 mayElseParser :: HaijiParser (Maybe [AST])
 mayElseParser = option Nothing (Just <$> elseParser) where
-  elseParser = do
-    _ <- statement (string "else")
-    leadingElseSpaces <- getLeadingSpaces
-    elsePart <- parser'
-    setLeadingSpaces leadingElseSpaces
-    return elsePart
+  elseParser = statement (string "else") *> preserveCurrentLeadingSpaces parser'
 
 -- |
 --
@@ -372,16 +373,15 @@ foreachParser = do
   foreach <- statement $ Foreach
              <$> (string "for" >> skipMany1 space >> identifier)
              <*> (skipMany1 space >> string "in" >> skipMany1 space >> variableParser)
-  leadingForSpaces <- getLeadingSpaces
-  loopPart <- parser'
-  mElsePart <- mayElseParser
-  leadingElseSpaces <- getLeadingSpaces
-  _ <- statement (string "endfor")
-  leadingEndForSpaces <- getLeadingSpaces
-  setLeadingSpaces leadingForSpaces
-  return $ case mElsePart of
-    Nothing       -> foreach (loopPart ++ maybeToList leadingEndForSpaces) Nothing
-    Just elsePart -> foreach (loopPart ++ maybeToList leadingElseSpaces  ) (Just $ elsePart ++ maybeToList leadingEndForSpaces)
+  preserveCurrentLeadingSpaces $ do
+    loopPart <- parser'
+    mElsePart <- mayElseParser
+    leadingElseSpaces <- getLeadingSpaces
+    _ <- statement (string "endfor")
+    leadingEndForSpaces <- getLeadingSpaces
+    return $ case mElsePart of
+      Nothing       -> foreach (loopPart ++ maybeToList leadingEndForSpaces) Nothing
+      Just elsePart -> foreach (loopPart ++ maybeToList leadingElseSpaces  ) (Just $ elsePart ++ maybeToList leadingEndForSpaces)
 
 -- |
 --
@@ -428,13 +428,12 @@ includeParser = statement $ string "include" >> skipSpace >> Include . T.unpack 
 rawParser :: HaijiParser AST
 rawParser = do
   _ <- statement (string "raw")
-  leadingRawSpaces <- getLeadingSpaces
-  (raw, leadingEndRawSpaces) <- till (liftParser anyChar) (statement (string "endraw") >> getLeadingSpaces)
-  setLeadingSpaces leadingRawSpaces
-  return $ Raw $ raw ++ maybe "" show leadingEndRawSpaces where
-    till :: Alternative f => f a -> f b -> f ([a], b)
-    till p end = go where
-      go = ((,) [] <$> end) <|> ((\a (as,b) -> (a:as, b)) <$> p <*> go)
+  preserveCurrentLeadingSpaces $ do
+    (raw, leadingEndRawSpaces) <- till (liftParser anyChar) (statement (string "endraw") >> getLeadingSpaces)
+    return $ Raw $ raw ++ maybe "" show leadingEndRawSpaces where
+      till :: Alternative f => f a -> f b -> f ([a], b)
+      till p end = go where
+        go = ((,) [] <$> end) <|> ((\a (as,b) -> (a:as, b)) <$> p <*> go)
 
 -- |
 --
@@ -485,14 +484,13 @@ extendsParser = statement $ string "extends" >> skipSpace >> Extends . T.unpack 
 blockParser :: HaijiParser AST
 blockParser = do
   name <- statement $ string "block" >> skipMany1 space >> identifier
-  leadingBlockSpaces <- getLeadingSpaces
-  body <- parser'
-  mayEndName <- statement $ string "endblock" >> option Nothing (Just <$> (skipMany1 space >> identifier))
-  leadingEndBlockSpaces <- getLeadingSpaces
-  setLeadingSpaces leadingBlockSpaces
-  if maybe True (name ==) mayEndName
-    then return $ Block name False (body ++ maybeToList leadingEndBlockSpaces)
-    else fail "blockParser"
+  preserveCurrentLeadingSpaces $ do
+    body <- parser'
+    mayEndName <- statement $ string "endblock" >> option Nothing (Just <$> (skipMany1 space >> identifier))
+    leadingEndBlockSpaces <- getLeadingSpaces
+    if maybe True (name ==) mayEndName
+      then return $ Block name False (body ++ maybeToList leadingEndBlockSpaces)
+      else fail "blockParser"
 
 -- |
 --
