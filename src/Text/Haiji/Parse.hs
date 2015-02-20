@@ -82,10 +82,10 @@ runHaijiParser :: HaijiParser a -> Parser (a, HaijiParserState)
 runHaijiParser p = runStateT (unHaijiParser p) defaultHaijiParserState
 
 evalHaijiParser :: HaijiParser a -> Parser a
-evalHaijiParser p = evalStateT (unHaijiParser p) defaultHaijiParserState
+evalHaijiParser p = fst <$> runHaijiParser p
 
 execHaijiParser :: HaijiParser a -> Parser HaijiParserState
-execHaijiParser p = execStateT (unHaijiParser p) defaultHaijiParserState
+execHaijiParser p = snd <$> runHaijiParser p
 
 liftParser :: Parser a -> HaijiParser a
 liftParser = HaijiParser . lift
