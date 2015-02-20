@@ -91,9 +91,8 @@ liftParser :: Parser a -> HaijiParser a
 liftParser = HaijiParser . lift
 
 keepLeadingSpaces :: HaijiParser ()
-keepLeadingSpaces = do
-  leadingSpaces <- liftParser $ option Nothing (Just . Literal <$> takeWhile1 isSpace)
-  modify (\s -> s { haijiParserStateLeadingSpaces = leadingSpaces })
+keepLeadingSpaces = liftParser leadingSpaces >>= setLeadingSpaces where
+  leadingSpaces = option Nothing (Just . Literal <$> takeWhile1 isSpace)
 
 setLeadingSpaces :: Maybe AST -> HaijiParser ()
 setLeadingSpaces ss = modify (\s -> s { haijiParserStateLeadingSpaces = ss })
