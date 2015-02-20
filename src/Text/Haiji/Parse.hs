@@ -323,15 +323,23 @@ conditionParser = do
   cond <- statement $ string "if" >> skipMany1 space >> variableParser
   leadingIfSpaces <- getLeadingSpaces
   ifPart <- parser'
-  mElsePart <- option Nothing (do _ <- statement (string "else")
-                                  leadingElseSpaces <- getLeadingSpaces
-                                  Just . (,) leadingElseSpaces <$> parser')
+  mElsePart <- mayElseParser
+  leadingElseSpaces <- getLeadingSpaces
   _ <- statement $ string "endif"
   leadingEndIfSpaces <- getLeadingSpaces
   setLeadingSpaces leadingIfSpaces
   return $ case mElsePart of
-    Nothing                            -> Condition cond (ifPart ++ maybeToList leadingEndIfSpaces) Nothing
-    Just (leadingElseSpaces, elsePart) -> Condition cond (ifPart ++ maybeToList leadingElseSpaces ) (Just $ elsePart ++ maybeToList leadingEndIfSpaces)
+    Nothing       -> Condition cond (ifPart ++ maybeToList leadingEndIfSpaces) Nothing
+    Just elsePart -> Condition cond (ifPart ++ maybeToList leadingElseSpaces ) (Just $ elsePart ++ maybeToList leadingEndIfSpaces)
+
+mayElseParser :: HaijiParser (Maybe [AST])
+mayElseParser = option Nothing (Just <$> elseParser) where
+  elseParser = do
+    _ <- statement (string "else")
+    leadingElseSpaces <- getLeadingSpaces
+    elsePart <- parser'
+    setLeadingSpaces leadingElseSpaces
+    return elsePart
 
 -- |
 --
@@ -367,15 +375,14 @@ foreachParser = do
              <*> (skipMany1 space >> string "in" >> skipMany1 space >> variableParser)
   leadingForSpaces <- getLeadingSpaces
   loopPart <- parser'
-  mElsePart <- option Nothing (do _ <- statement (string "else")
-                                  leadingElseSpaces <- getLeadingSpaces
-                                  Just . (,) leadingElseSpaces <$> parser')
+  mElsePart <- mayElseParser
+  leadingElseSpaces <- getLeadingSpaces
   _ <- statement (string "endfor")
   leadingEndForSpaces <- getLeadingSpaces
   setLeadingSpaces leadingForSpaces
   return $ case mElsePart of
-    Nothing                            -> foreach (loopPart ++ maybeToList leadingEndForSpaces) Nothing
-    Just (leadingElseSpaces, elsePart) -> foreach (loopPart ++ maybeToList leadingElseSpaces  ) (Just $ elsePart ++ maybeToList leadingEndForSpaces)
+    Nothing       -> foreach (loopPart ++ maybeToList leadingEndForSpaces) Nothing
+    Just elsePart -> foreach (loopPart ++ maybeToList leadingElseSpaces  ) (Just $ elsePart ++ maybeToList leadingEndForSpaces)
 
 -- |
 --
