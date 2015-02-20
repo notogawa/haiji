@@ -95,11 +95,7 @@ saveLeadingSpaces = liftParser leadingSpaces >>= setLeadingSpaces where
   leadingSpaces = option Nothing (Just . Literal <$> takeWhile1 isSpace)
 
 preserveCurrentLeadingSpaces :: HaijiParser a -> HaijiParser a
-preserveCurrentLeadingSpaces p = do
-  leadingSpaces <- getLeadingSpaces
-  a <- p
-  setLeadingSpaces leadingSpaces
-  return a
+preserveCurrentLeadingSpaces p = getLeadingSpaces >>= (p <*) .  setLeadingSpaces
 
 setLeadingSpaces :: Maybe AST -> HaijiParser ()
 setLeadingSpaces ss = modify (\s -> s { haijiParserStateLeadingSpaces = ss })
@@ -148,8 +144,8 @@ literalParser = liftParser $ Literal . T.concat <$> many1 go where
     sp <- takeTill (not . isSpace)
     pc <- peekChar
     case pc of
-      Nothing  -> if T.null sp then fail "Failed reading: literalParser" else return sp
-      Just '{' -> fail "Failed reading: literalParser"
+      Nothing  -> if T.null sp then fail "literalParser" else return sp
+      Just '{' -> fail "literalParser"
       _        -> T.append sp <$> takeWhile1 (\c -> c /= '{' && not (isSpace c))
 
 -- |
@@ -174,9 +170,8 @@ literalParser = liftParser $ Literal . T.concat <$> many1 go where
 -- Right {{ foo }}
 --
 derefParser :: HaijiParser AST
-derefParser = do
-  saveLeadingSpaces
-  liftParser $ Deref <$> ((string "{{" >> skipSpace) *> variableParser <* (skipSpace >> string "}}"))
+derefParser = saveLeadingSpaces *> liftParser deref where
+  deref = Deref <$> ((string "{{" >> skipSpace) *> variableParser <* (skipSpace >> string "}}"))
 
 -- | python identifier
 --
@@ -292,14 +287,10 @@ variableParser = identifier >>= variableParser' . Simple where
 --
 statement :: Parser a -> HaijiParser a
 statement f = withLeadingSpaces <|> skipLeadingSpaces where
-  withLeadingSpaces = do
-    saveLeadingSpaces
-    liftParser $ (string "{%" >> skipSpace) *> f <* (skipSpace >> end)
-  skipLeadingSpaces = do
-    saveLeadingSpaces
-    resetLeadingSpaces
-    liftParser $ (string "{%-" >> skipSpace) *> f <* (skipSpace >> end)
+  start s = saveLeadingSpaces *> liftParser ((string s  >> skipSpace) *> f <* (skipSpace >> end))
   end = string "%}" <|> (string "-%}" <* skipSpace)
+  withLeadingSpaces = start "{%"
+  skipLeadingSpaces = start "{%-" <* resetLeadingSpaces
 
 -- |
 --
@@ -504,8 +495,4 @@ blockParser = do
 -- Right (HaijiParserState {haijiParserStateLeadingSpaces = Just   , haijiParserStateInExtends = False})
 --
 commentParser :: HaijiParser ()
-commentParser = do
-  leadingSpaces <- liftParser $ option Nothing (Just . Literal <$> takeWhile1 isSpace)
-  setLeadingSpaces leadingSpaces
-  _ <- liftParser $ string "{#" >> manyTill anyChar (string "#}")
-  return ()
+commentParser = saveLeadingSpaces <* liftParser (string "{#" >> manyTill anyChar (string "#}"))
