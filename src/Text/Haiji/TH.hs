@@ -35,10 +35,10 @@ key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . 
                   , quoteDec = undefined
                   }
 
-haijiASTs :: Quasi q => [AST Loaded] -> q Exp
+haijiASTs :: Quasi q => [AST 'Loaded] -> q Exp
 haijiASTs asts = runQ [e| LT.concat <$> sequence $(listE $ map haijiAST asts) |]
 
-haijiAST :: Quasi q => AST Loaded -> q Exp
+haijiAST :: Quasi q => AST 'Loaded -> q Exp
 haijiAST (Literal l) =
   runQ [e| return $(litE $ stringL $ T.unpack l) |]
 haijiAST (Deref x) =
