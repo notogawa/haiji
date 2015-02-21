@@ -29,6 +29,10 @@ instance Show Variable where
   show (Attribute v f) = shows v "." ++ show f
   show (At v ix) = shows v "[" ++ show ix ++ "]"
 
+type Scoped = Bool
+
+type Base = Bool
+
 data AST = Literal T.Text
          | Deref Variable
          | Condition Variable [AST] (Maybe [AST])
@@ -36,7 +40,7 @@ data AST = Literal T.Text
          | Include FilePath
          | Raw String
          | Extends FilePath
-         | Block Identifier Bool [AST]
+         | Block Base Identifier Scoped [AST]
            deriving Eq
 
 instance Show AST where
@@ -55,7 +59,7 @@ instance Show AST where
   show (Include file) = "{% include \"" ++ file ++ "\" %}"
   show (Raw raw) = "{% raw %}" ++ raw ++ "{% endraw %}"
   show (Extends file) = "{% extends \"" ++ file ++ "\" %}"
-  show (Block name scoped body) =
+  show (Block _ name scoped body) =
     "{% block " ++ show name ++ (if scoped then " scoped" else "") ++" %}" ++
     concatMap show body ++
     "{% endblock %}"
@@ -70,7 +74,7 @@ defaultHaijiParserState :: HaijiParserState
 defaultHaijiParserState =
   HaijiParserState
   { haijiParserStateLeadingSpaces = Nothing
-  , haijiParserStateInBaseTemplate = False
+  , haijiParserStateInBaseTemplate = True
   }
 
 newtype HaijiParser a =
@@ -107,6 +111,12 @@ resetLeadingSpaces = setLeadingSpaces Nothing
 
 getLeadingSpaces :: HaijiParser (Maybe AST)
 getLeadingSpaces = gets haijiParserStateLeadingSpaces
+
+setWhetherBaseTemplate :: Bool -> HaijiParser ()
+setWhetherBaseTemplate x = modify (\s -> s { haijiParserStateInBaseTemplate = x })
+
+getWhetherBaseTemplate :: HaijiParser Bool
+getWhetherBaseTemplate = gets haijiParserStateInBaseTemplate
 
 parser :: Parser [AST]
 parser = evalHaijiParser (haijiParser <* liftParser endOfInput)
@@ -158,7 +168,7 @@ literalParser = liftParser $ Literal . T.concat <$> many1 go where
 -- >>> eval "{{ foo }}"
 -- {{ foo }}
 -- >>> exec "{{ foo }}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 -- >>> eval "{{bar}}"
 -- {{ bar }}
 -- >>> eval "{{   baz}}"
@@ -166,7 +176,7 @@ literalParser = liftParser $ Literal . T.concat <$> many1 go where
 -- >>> eval " {{ foo }}"
 -- {{ foo }}
 -- >>> exec " {{ foo }}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Just  , haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Just  , haijiParserStateInBaseTemplate = True}
 -- >>> eval "{ { foo }}"
 -- *** Exception: Failed reading: takeWith
 -- >>> eval "{{ foo } }"
@@ -285,13 +295,13 @@ variableParser = identifier >>= go . Simple where
 --
 -- >>> let exec = either error id . parseOnly (execHaijiParser $ statement $ return ())
 -- >>> exec "{%%}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 -- >>> exec "{% %}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 -- >>> exec " {% %} "
--- HaijiParserState {haijiParserStateLeadingSpaces = Just  , haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Just  , haijiParserStateInBaseTemplate = True}
 -- >>> exec " {%- -%} "
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 --
 statement :: Parser a -> HaijiParser a
 statement f = start "{%" <|> (start "{%-" <* resetLeadingSpaces) where
@@ -305,7 +315,7 @@ statement f = start "{%" <|> (start "{%-" <* resetLeadingSpaces) where
 -- >>> eval "{% if foo %}テスト{% endif %}"
 -- {% if foo %}テスト{% endif %}
 -- >>> exec "{% if foo %}テスト{% endif %}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 -- >>> eval "{%if foo%}テスト{%endif%}"
 -- {% if foo %}テスト{% endif %}
 -- >>> eval "{% iffoo %}テスト{% endif %}"
@@ -317,11 +327,11 @@ statement f = start "{%" <|> (start "{%-" <* resetLeadingSpaces) where
 -- >>> eval "    {% if foo %}テスト{% endif %}"
 -- {% if foo %}テスト{% endif %}
 -- >>> exec "    {% if foo %}テスト{% endif %}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Just     , haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Just     , haijiParserStateInBaseTemplate = True}
 -- >>> eval "    {%- if foo -%}    テスト    {%- endif -%}    "
 -- {% if foo %}テスト{% endif %}
 -- >>> exec "    {%- if foo -%}    テスト    {%- endif -%}    "
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 --
 conditionParser :: HaijiParser AST
 conditionParser = withLeadingSpacesOf startCondition restCondition where
@@ -347,7 +357,7 @@ mayElseParser = option Nothing (Just <$> elseParser) where
 -- >>> eval "{% for _ in foo %}loop{% endfor %}"
 -- {% for _ in foo %}loop{% endfor %}
 -- >>> exec "{% for _ in foo %}loop{% endfor %}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 -- >>> eval "{%for _ in foo%}loop{%endfor%}"
 -- {% for _ in foo %}loop{% endfor %}
 -- >>> eval "{% for_ in foo %}loop{% endfor %}"
@@ -363,11 +373,11 @@ mayElseParser = option Nothing (Just <$> elseParser) where
 -- >>> eval "  {% for _ in foo %}  loop  {% endfor %}  "
 -- {% for _ in foo %}  loop  {% endfor %}
 -- >>> exec "  {% for _ in foo %}  loop  {% endfor %}  "
--- HaijiParserState {haijiParserStateLeadingSpaces = Just   , haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Just   , haijiParserStateInBaseTemplate = True}
 -- >>> eval "  {%- for _ in foo -%}  loop  {%- endfor -%}  "
 -- {% for _ in foo %}loop{% endfor %}
 -- >>> exec "  {%- for _ in foo -%}  loop  {%- endfor -%}  "
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 --
 foreachParser :: HaijiParser AST
 foreachParser = withLeadingSpacesOf startForeach restForeach where
@@ -391,7 +401,7 @@ foreachParser = withLeadingSpacesOf startForeach restForeach where
 -- >>> eval "{% include \"foo.tmpl\" %}"
 -- {% include "foo.tmpl" %}
 -- >>> exec "{% include \"foo.tmpl\" %}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 -- >>> eval "{%include\"foo.tmpl\"%}"
 -- {% include "foo.tmpl" %}
 -- >>> eval "{% include 'foo.tmpl' %}"
@@ -399,11 +409,11 @@ foreachParser = withLeadingSpacesOf startForeach restForeach where
 -- >>> eval "  {% include \"foo.tmpl\" %}"
 -- {% include "foo.tmpl" %}
 -- >>> exec "  {% include \"foo.tmpl\" %}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Just   , haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Just   , haijiParserStateInBaseTemplate = True}
 -- >>> eval "  {%- include \"foo.tmpl\" -%}   "
 -- {% include "foo.tmpl" %}
 -- >>> exec "  {%- include \"foo.tmpl\" -%}   "
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 --
 includeParser :: HaijiParser AST
 includeParser = statement $ string "include" >> skipSpace >> Include . T.unpack <$> (quotedBy '"' <|> quotedBy '\'') where
@@ -416,7 +426,7 @@ includeParser = statement $ string "include" >> skipSpace >> Include . T.unpack 
 -- >>> eval "{% raw %}test{% endraw %}"
 -- {% raw %}test{% endraw %}
 -- >>> exec "{% raw %}test{% endraw %}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 -- >>> eval "{%raw%}test{%endraw%}"
 -- {% raw %}test{% endraw %}
 -- >>> eval "{% raw %}{{ test }}{% endraw %}"
@@ -424,11 +434,11 @@ includeParser = statement $ string "include" >> skipSpace >> Include . T.unpack 
 -- >>> eval "  {% raw %}  test  {% endraw %}"
 -- {% raw %}  test  {% endraw %}
 -- >>> exec "  {% raw %}  test  {% endraw %}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Just   , haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Just   , haijiParserStateInBaseTemplate = True}
 -- >>> eval "  {%- raw -%}   test  {%- endraw -%}  "
 -- {% raw %}test{% endraw %}
 -- >>> exec "  {%- raw -%}   test  {%- endraw -%}  "
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 --
 rawParser :: HaijiParser AST
 rawParser = withLeadingSpacesOf startRaw restRaw where
@@ -462,8 +472,12 @@ rawParser = withLeadingSpacesOf startRaw restRaw where
 -- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
 --
 extendsParser :: HaijiParser AST
-extendsParser = statement $ string "extends" >> skipSpace >> Extends . T.unpack <$> (quotedBy '"' <|> quotedBy '\'') where
-  quotedBy c = char c *> takeTill (== c) <* char c -- TODO: ここもっとマジメにやらないと
+extendsParser = do
+  base <- getWhetherBaseTemplate
+  unless base $ fail "extendsParser"
+  go <* setWhetherBaseTemplate False where
+    go = statement $ string "extends" >> skipSpace >> Extends . T.unpack <$> (quotedBy '"' <|> quotedBy '\'')
+    quotedBy c = char c *> takeTill (== c) <* char c -- TODO: ここもっとマジメにやらないと
 
 -- |
 --
@@ -472,7 +486,7 @@ extendsParser = statement $ string "extends" >> skipSpace >> Extends . T.unpack 
 -- >>> eval "{% block foo %}テスト{% endblock %}"
 -- {% block foo %}テスト{% endblock %}
 -- >>> exec "{% block foo %}テスト{% endblock %}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 -- >>> eval "{% block foo %}テスト{% endblock foo %}"
 -- {% block foo %}テスト{% endblock %}
 -- >>> eval "{% block foo %}テスト{% endblock bar %}"
@@ -484,11 +498,11 @@ extendsParser = statement $ string "extends" >> skipSpace >> Extends . T.unpack 
 -- >>> eval "    {% block foo %}テスト{% endblock %}"
 -- {% block foo %}テスト{% endblock %}
 -- >>> exec "    {% block foo %}テスト{% endblock %}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Just     , haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Just     , haijiParserStateInBaseTemplate = True}
 -- >>> eval "    {%- block foo -%}    テスト    {%- endblock -%}    "
 -- {% block foo %}テスト{% endblock %}
 -- >>> exec "    {%- block foo -%}    テスト    {%- endblock -%}    "
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 --
 blockParser :: HaijiParser AST
 blockParser = withLeadingSpacesOf startBlock restBlock where
@@ -497,8 +511,9 @@ blockParser = withLeadingSpacesOf startBlock restBlock where
     body <- haijiParser
     mayEndName <- statement $ string "endblock" >> option Nothing (Just <$> (skipMany1 space >> identifier))
     leadingEndBlockSpaces <- getLeadingSpaces
+    base <- getWhetherBaseTemplate
     if maybe True (name ==) mayEndName
-      then return $ Block name False (body ++ maybeToList leadingEndBlockSpaces)
+      then return $ Block base name False (body ++ maybeToList leadingEndBlockSpaces)
       else fail "blockParser"
 
 -- |
@@ -508,11 +523,11 @@ blockParser = withLeadingSpacesOf startBlock restBlock where
 -- >>> eval "{# comment #}"
 -- ()
 -- >>> exec "{# comment #}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 -- >>> eval "  {# comment #}"
 -- ()
 -- >>> exec "  {# comment #}"
--- HaijiParserState {haijiParserStateLeadingSpaces = Just   , haijiParserStateInBaseTemplate = False}
+-- HaijiParserState {haijiParserStateLeadingSpaces = Just   , haijiParserStateInBaseTemplate = True}
 --
 commentParser :: HaijiParser ()
 commentParser = saveLeadingSpaces <* liftParser (string "{#" >> manyTill anyChar (string "#}"))
