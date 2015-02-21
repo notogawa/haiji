@@ -1,6 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
-module Text.Haiji.Parse where
+module Text.Haiji.Parse
+       ( Variable(..)
+       , AST(..)
+       , parser
+       ) where
 
 import Control.Applicative
 import Control.Monad
@@ -13,6 +17,8 @@ import qualified Data.Text as T
 
 -- $setup
 -- >>> :set -XOverloadedStrings
+-- >>> let execHaijiParser p = snd <$> runHaijiParser p
+
 
 newtype Identifier = Identifier String deriving Eq
 
@@ -89,9 +95,6 @@ runHaijiParser p = runStateT (unHaijiParser p) defaultHaijiParserState
 
 evalHaijiParser :: HaijiParser a -> Parser a
 evalHaijiParser p = fst <$> runHaijiParser p
-
-execHaijiParser :: HaijiParser a -> Parser HaijiParserState
-execHaijiParser p = snd <$> runHaijiParser p
 
 liftParser :: Parser a -> HaijiParser a
 liftParser = HaijiParser . lift
