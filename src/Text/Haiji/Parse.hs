@@ -56,24 +56,24 @@ data AST :: SubTemplate -> * where
   Deref :: Variable -> AST a
   Condition :: Variable -> [AST a] -> Maybe [AST a] -> AST a
   Foreach :: Identifier -> Variable -> [AST a] -> Maybe [AST a] -> AST a
-  Include :: FilePath -> AST Unloaded
+  Include :: FilePath -> AST 'Unloaded
   Raw :: String -> AST a
-  Extends :: FilePath -> AST Unloaded
+  Extends :: FilePath -> AST 'Unloaded
   Block :: Base -> Identifier -> Scoped -> [AST a] -> AST a
   Comment :: String -> AST a
 
 deriving instance Eq (AST a)
 
-parseString :: String -> IO [AST Loaded]
+parseString :: String -> IO [AST 'Loaded]
 parseString = either error readAllFile . parseOnly parser . T.pack
 
-parseFileWith :: (LT.Text -> LT.Text) -> FilePath -> IO [AST Loaded]
+parseFileWith :: (LT.Text -> LT.Text) -> FilePath -> IO [AST 'Loaded]
 parseFileWith f file = LT.readFile file >>= parseString . LT.unpack . f
 
-readAllFile :: [AST Unloaded] -> IO [AST Loaded]
+readAllFile :: [AST 'Unloaded] -> IO [AST 'Loaded]
 readAllFile asts = concat <$> mapM parseFileRecursively asts
 
-parseFileRecursively :: AST Unloaded -> IO [AST Loaded]
+parseFileRecursively :: AST 'Unloaded -> IO [AST 'Loaded]
 parseFileRecursively (Literal l) = return [ Literal l ]
 parseFileRecursively (Deref v) = return [ Deref v ]
 parseFileRecursively (Condition p ts fs) =
@@ -91,7 +91,7 @@ parseFileRecursively (Block base name scoped body) =
   (:[]) . Block base name scoped <$> readAllFile body
 parseFileRecursively (Comment c) = return [ Comment c ]
 
-parseFile :: FilePath -> IO [AST Loaded]
+parseFile :: FilePath -> IO [AST 'Loaded]
 parseFile = parseFileWith deleteLastOneLF where
   deleteLastOneLF :: LT.Text -> LT.Text
   deleteLastOneLF xs
@@ -100,7 +100,7 @@ parseFile = parseFileWith deleteLastOneLF where
     | not ("\n" `LT.isSuffixOf` xs) = xs `LT.append` "\n"
     | otherwise                     = xs
 
-parseImportFile :: FilePath -> IO [AST Loaded]
+parseImportFile :: FilePath -> IO [AST 'Loaded]
 parseImportFile = parseFileWith deleteLastOneLF where
   deleteLastOneLF xs
     | LT.null xs         = xs
@@ -131,7 +131,7 @@ instance Show (AST a) where
 
 data HaijiParserState =
   HaijiParserState
-  { haijiParserStateLeadingSpaces :: Maybe (AST Unloaded)
+  { haijiParserStateLeadingSpaces :: Maybe (AST 'Unloaded)
   , haijiParserStateInBaseTemplate :: Bool
   } deriving (Eq, Show)
 
@@ -165,13 +165,13 @@ withLeadingSpacesOf p q = do
   a <- p
   getLeadingSpaces >>= (q a <*) . setLeadingSpaces
 
-setLeadingSpaces :: Maybe (AST Unloaded) -> HaijiParser ()
+setLeadingSpaces :: Maybe (AST 'Unloaded) -> HaijiParser ()
 setLeadingSpaces ss = modify (\s -> s { haijiParserStateLeadingSpaces = ss })
 
 resetLeadingSpaces :: HaijiParser ()
 resetLeadingSpaces = setLeadingSpaces Nothing
 
-getLeadingSpaces :: HaijiParser (Maybe (AST Unloaded))
+getLeadingSpaces :: HaijiParser (Maybe (AST 'Unloaded))
 getLeadingSpaces = gets haijiParserStateLeadingSpaces
 
 setWhetherBaseTemplate :: Bool -> HaijiParser ()
@@ -180,10 +180,10 @@ setWhetherBaseTemplate x = modify (\s -> s { haijiParserStateInBaseTemplate = x 
 getWhetherBaseTemplate :: HaijiParser Bool
 getWhetherBaseTemplate = gets haijiParserStateInBaseTemplate
 
-parser :: Parser [AST Unloaded]
+parser :: Parser [AST 'Unloaded]
 parser = evalHaijiParser (haijiParser <* liftParser endOfInput)
 
-haijiParser :: HaijiParser [AST Unloaded]
+haijiParser :: HaijiParser [AST 'Unloaded]
 haijiParser = concat <$> many (resetLeadingSpaces *> choice (map toList parsers)) where
   parsers = [ literalParser
             , derefParser
@@ -212,7 +212,7 @@ haijiParser = concat <$> many (resetLeadingSpaces *> choice (map toList parsers)
 -- >>> eval "   テスト  テスト  {%-test"
 --    テスト  テスト
 --
-literalParser :: HaijiParser (AST Unloaded)
+literalParser :: HaijiParser (AST 'Unloaded)
 literalParser = liftParser $ Literal . T.concat <$> many1 go where
   go = do
     sp <- takeTill (not . isSpace)
@@ -245,7 +245,7 @@ literalParser = liftParser $ Literal . T.concat <$> many1 go where
 -- >>> eval "{{ foo }} "
 -- {{ foo }}
 --
-derefParser :: HaijiParser (AST Unloaded)
+derefParser :: HaijiParser (AST 'Unloaded)
 derefParser = saveLeadingSpaces *> liftParser deref where
   deref = Deref <$> ((string "{{" >> skipSpace) *> variableParser <* (skipSpace >> string "}}"))
 
@@ -394,7 +394,7 @@ statement f = start "{%" <|> (start "{%-" <* resetLeadingSpaces) where
 -- >>> exec "    {%- if foo -%}    テスト    {%- endif -%}    "
 -- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 --
-conditionParser :: HaijiParser (AST Unloaded)
+conditionParser :: HaijiParser (AST 'Unloaded)
 conditionParser = withLeadingSpacesOf startCondition restCondition where
   startCondition = statement $ string "if" >> skipMany1 space >> variableParser
   restCondition cond = do
@@ -407,7 +407,7 @@ conditionParser = withLeadingSpacesOf startCondition restCondition where
       Nothing       -> Condition cond (ifPart ++ maybeToList leadingEndIfSpaces) Nothing
       Just elsePart -> Condition cond (ifPart ++ maybeToList leadingElseSpaces ) (Just $ elsePart ++ maybeToList leadingEndIfSpaces)
 
-mayElseParser :: HaijiParser (Maybe [AST Unloaded])
+mayElseParser :: HaijiParser (Maybe [AST 'Unloaded])
 mayElseParser = option Nothing (Just <$> elseParser) where
   elseParser = withLeadingSpacesOf (statement (string "else")) $ const haijiParser
 
@@ -440,7 +440,7 @@ mayElseParser = option Nothing (Just <$> elseParser) where
 -- >>> exec "  {%- for _ in foo -%}  loop  {%- endfor -%}  "
 -- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 --
-foreachParser :: HaijiParser (AST Unloaded)
+foreachParser :: HaijiParser (AST 'Unloaded)
 foreachParser = withLeadingSpacesOf startForeach restForeach where
   startForeach = statement $ Foreach
                  <$> (string "for" >> skipMany1 space >> identifier)
@@ -476,7 +476,7 @@ foreachParser = withLeadingSpacesOf startForeach restForeach where
 -- >>> exec "  {%- include \"foo.tmpl\" -%}   "
 -- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 --
-includeParser :: HaijiParser (AST Unloaded)
+includeParser :: HaijiParser (AST 'Unloaded)
 includeParser = statement $ string "include" >> skipSpace >> Include . T.unpack <$> (quotedBy '"' <|> quotedBy '\'') where
     quotedBy c = char c *> takeTill (== c) <* char c -- TODO: ここもっとマジメにやらないと
 
@@ -501,7 +501,7 @@ includeParser = statement $ string "include" >> skipSpace >> Include . T.unpack 
 -- >>> exec "  {%- raw -%}   test  {%- endraw -%}  "
 -- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 --
-rawParser :: HaijiParser (AST Unloaded)
+rawParser :: HaijiParser (AST 'Unloaded)
 rawParser = withLeadingSpacesOf startRaw restRaw where
   startRaw = statement $ string "raw"
   restRaw _ = do
@@ -532,7 +532,7 @@ rawParser = withLeadingSpacesOf startRaw restRaw where
 -- >>> exec "  {%- extends \"foo.tmpl\" -%}   "
 -- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = False}
 --
-extendsParser :: HaijiParser (AST Unloaded)
+extendsParser :: HaijiParser (AST 'Unloaded)
 extendsParser = do
   base <- getWhetherBaseTemplate
   unless base $ fail "extendsParser"
@@ -565,7 +565,7 @@ extendsParser = do
 -- >>> exec "    {%- block foo -%}    テスト    {%- endblock -%}    "
 -- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 --
-blockParser :: HaijiParser (AST Unloaded)
+blockParser :: HaijiParser (AST 'Unloaded)
 blockParser = withLeadingSpacesOf startBlock restBlock where
   startBlock = statement $ string "block" >> skipMany1 space >> identifier
   restBlock name = do
@@ -590,5 +590,5 @@ blockParser = withLeadingSpacesOf startBlock restBlock where
 -- >>> exec "  {# comment #}"
 -- HaijiParserState {haijiParserStateLeadingSpaces = Just   , haijiParserStateInBaseTemplate = True}
 --
-commentParser :: HaijiParser (AST Unloaded)
+commentParser :: HaijiParser (AST 'Unloaded)
 commentParser = saveLeadingSpaces *> liftParser (string "{#" >> Comment <$> manyTill anyChar (string "#}"))
