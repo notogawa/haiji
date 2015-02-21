@@ -83,6 +83,7 @@ haijiAST (Include file) = haijiImportFile file
 haijiAST (Raw raw) = runQ [e| return raw |]
 haijiAST (Extends _file) = undefined
 haijiAST (Block _base _name _scoped _body) = undefined
+haijiAST (Comment _) = runQ [e| return ""|]
 
 loopVariables :: Int -> Int -> TLDict '["first" :-> Bool, "index" :-> Int, "index0" :-> Int, "last" :-> Bool, "length" :-> Int, "revindex" :-> Int, "revindex0" :-> Int]
 loopVariables len ix =

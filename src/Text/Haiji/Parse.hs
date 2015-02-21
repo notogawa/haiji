@@ -41,6 +41,7 @@ data AST = Literal T.Text
          | Raw String
          | Extends FilePath
          | Block Base Identifier Scoped [AST]
+         | Comment String
            deriving Eq
 
 instance Show AST where
@@ -63,6 +64,7 @@ instance Show AST where
     "{% block " ++ show name ++ (if scoped then " scoped" else "") ++" %}" ++
     concatMap show body ++
     "{% endblock %}"
+  show (Comment c) = "{#" ++ c ++ "#}"
 
 data HaijiParserState =
   HaijiParserState
@@ -122,18 +124,17 @@ parser :: Parser [AST]
 parser = evalHaijiParser (haijiParser <* liftParser endOfInput)
 
 haijiParser :: HaijiParser [AST]
-haijiParser = concat <$> many (resetLeadingSpaces *>
-                               choice
-                               [ toList literalParser
-                               , toList derefParser
-                               , toList conditionParser
-                               , toList foreachParser
-                               , toList includeParser
-                               , toList rawParser
-                               , toList extendsParser
-                               , toList blockParser
-                               , resetLeadingSpaces *> commentParser *> (maybeToList <$> getLeadingSpaces)
-                               ]) where
+haijiParser = concat <$> many (resetLeadingSpaces *> choice (map toList parsers)) where
+  parsers = [ literalParser
+            , derefParser
+            , conditionParser
+            , foreachParser
+            , includeParser
+            , rawParser
+            , extendsParser
+            , blockParser
+            , commentParser
+            ]
   toList p = do
     b <- p
     a <- getLeadingSpaces
@@ -521,13 +522,13 @@ blockParser = withLeadingSpacesOf startBlock restBlock where
 -- >>> let eval = either error id . parseOnly (evalHaijiParser commentParser)
 -- >>> let exec = either error id . parseOnly (execHaijiParser commentParser)
 -- >>> eval "{# comment #}"
--- ()
+-- {# comment #}
 -- >>> exec "{# comment #}"
 -- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 -- >>> eval "  {# comment #}"
--- ()
+-- {# comment #}
 -- >>> exec "  {# comment #}"
 -- HaijiParserState {haijiParserStateLeadingSpaces = Just   , haijiParserStateInBaseTemplate = True}
 --
-commentParser :: HaijiParser ()
-commentParser = saveLeadingSpaces <* liftParser (string "{#" >> manyTill anyChar (string "#}"))
+commentParser :: HaijiParser AST
+commentParser = saveLeadingSpaces *> liftParser (string "{#" >> Comment <$> manyTill anyChar (string "#}"))
