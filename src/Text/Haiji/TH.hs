@@ -9,11 +9,9 @@ import Control.Applicative
 import Control.Monad.Trans.Reader
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote
-import Language.Haskell.TH.Syntax
-import Data.Attoparsec.Text
+import Language.Haskell.TH.Syntax hiding (lift)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
-import qualified Data.Text.Lazy.IO as LT
 import Text.Haiji.Parse
 import Text.Haiji.Types
 
@@ -25,22 +23,10 @@ haiji = QuasiQuoter { quoteExp = haijiExp
                     }
 
 haijiFile :: Quasi q => FilePath -> q Exp
-haijiFile file = runQ (runIO $ LT.readFile file) >>= haijiExp . LT.unpack . deleteLastOneLF where
-  deleteLastOneLF xs
-    | "%}\n" `LT.isSuffixOf` xs     = LT.init xs
-    | "\n\n" `LT.isSuffixOf` xs     = LT.init xs
-    | not ("\n" `LT.isSuffixOf` xs) = xs `LT.append` "\n"
-    | otherwise                     = xs
-
-haijiImportFile :: Quasi q => FilePath -> q Exp
-haijiImportFile file = runQ (runIO $ LT.readFile file) >>= haijiExp . LT.unpack . deleteLastOneLF where
-  deleteLastOneLF xs
-    | LT.null xs         = xs
-    | LT.last xs == '\n' = LT.init xs
-    | otherwise          = xs
+haijiFile file = runQ (runIO $ parseFile file) >>= haijiASTs
 
 haijiExp :: Quasi q => String -> q Exp
-haijiExp = either error haijiASTs . parseOnly parser . T.pack
+haijiExp str = runQ (runIO $ parseString str) >>= haijiASTs
 
 key :: QuasiQuoter
 key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . strTyLit $ k)) |]
@@ -49,10 +35,10 @@ key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . 
                   , quoteDec = undefined
                   }
 
-haijiASTs :: Quasi q => [AST] -> q Exp
+haijiASTs :: Quasi q => [AST Loaded] -> q Exp
 haijiASTs asts = runQ [e| LT.concat <$> sequence $(listE $ map haijiAST asts) |]
 
-haijiAST :: Quasi q => AST -> q Exp
+haijiAST :: Quasi q => AST Loaded -> q Exp
 haijiAST (Literal l) =
   runQ [e| return $(litE $ stringL $ T.unpack l) |]
 haijiAST (Deref x) =
@@ -79,9 +65,7 @@ haijiAST (Foreach k xs loopBody elseBody) =
                             ]
               else $(maybe [e| return "" |] haijiASTs elseBody)
          |]
-haijiAST (Include file) = haijiImportFile file
 haijiAST (Raw raw) = runQ [e| return raw |]
-haijiAST (Extends _file) = undefined
 haijiAST (Block _base _name _scoped _body) = undefined
 haijiAST (Comment _) = runQ [e| return ""|]
 
