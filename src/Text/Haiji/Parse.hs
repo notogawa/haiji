@@ -202,7 +202,7 @@ haijiParser = concat <$> many (resetLeadingSpaces *> choice (map toList parsers)
 
 -- |
 --
--- >>> let eval = either error id . parseOnly (evalHaijiParser literalParser)
+-- >>> let eval = either (error "parse error") id . parseOnly (evalHaijiParser literalParser)
 -- >>> eval "テスト{test"
 -- テスト
 -- >>> eval "   テスト  {test"
@@ -224,8 +224,8 @@ literalParser = liftParser $ Literal . T.concat <$> many1 go where
 
 -- |
 --
--- >>> let eval = either error id . parseOnly (evalHaijiParser derefParser)
--- >>> let exec = either error id . parseOnly (execHaijiParser derefParser)
+-- >>> let eval = either (error "parse error") id . parseOnly (evalHaijiParser derefParser)
+-- >>> let exec = either (error "parse error") id . parseOnly (execHaijiParser derefParser)
 -- >>> eval "{{ foo }}"
 -- {{ foo }}
 -- >>> exec "{{ foo }}"
@@ -239,9 +239,9 @@ literalParser = liftParser $ Literal . T.concat <$> many1 go where
 -- >>> exec " {{ foo }}"
 -- HaijiParserState {haijiParserStateLeadingSpaces = Just  , haijiParserStateInBaseTemplate = True}
 -- >>> eval "{ { foo }}"
--- *** Exception: Failed reading: takeWith
+-- *** Exception: parse error
 -- >>> eval "{{ foo } }"
--- *** Exception: Failed reading: takeWith
+-- *** Exception: parse error
 -- >>> eval "{{ foo }} "
 -- {{ foo }}
 --
@@ -253,7 +253,7 @@ derefParser = saveLeadingSpaces *> liftParser deref where
 --
 -- https://docs.python.org/2.7/reference/lexical_analysis.html#identifiers
 --
--- >>> let eval = either error id . parseOnly identifier
+-- >>> let eval = either (error "parse error") id . parseOnly identifier
 -- >>> eval "a"
 -- a
 -- >>> eval "ab"
@@ -273,15 +273,15 @@ derefParser = saveLeadingSpaces *> liftParser deref where
 -- >>> eval "_ "
 -- _
 -- >>> eval " _"
--- *** Exception: Failed reading: satisfy
+-- *** Exception: parse error
 -- >>> eval "and"
--- *** Exception: Failed reading: identifier
+-- *** Exception: parse error
 -- >>> eval "1"
--- *** Exception: Failed reading: satisfy
+-- *** Exception: parse error
 -- >>> eval "1b"
--- *** Exception: Failed reading: satisfy
+-- *** Exception: parse error
 -- >>> eval "'x"
--- *** Exception: Failed reading: satisfy
+-- *** Exception: parse error
 --
 identifier :: Parser Identifier
 identifier = do
@@ -307,7 +307,7 @@ keywords = words
 
 -- |
 --
--- >>> let eval = either error id . parseOnly variableParser
+-- >>> let eval = either (error "parse error") id . parseOnly variableParser
 -- >>> eval "foo"
 -- foo
 -- >>> eval "foo.bar"
@@ -325,7 +325,7 @@ keywords = words
 -- >>> eval "foo.b }ar"
 -- foo.b
 -- >>> eval " foo.bar"
--- *** Exception: Failed reading: satisfy
+-- *** Exception: parse error
 -- >>> eval "foo.  bar"
 -- foo.bar
 -- >>> eval "foo  .bar"
@@ -354,7 +354,7 @@ variableParser = identifier >>= go . Simple where
 
 -- |
 --
--- >>> let exec = either error id . parseOnly (execHaijiParser $ statement $ return ())
+-- >>> let exec = either (error "parse error") id . parseOnly (execHaijiParser $ statement $ return ())
 -- >>> exec "{%%}"
 -- HaijiParserState {haijiParserStateLeadingSpaces = Nothing, haijiParserStateInBaseTemplate = True}
 -- >>> exec "{% %}"
@@ -371,8 +371,8 @@ statement f = start "{%" <|> (start "{%-" <* resetLeadingSpaces) where
 
 -- |
 --
--- >>> let eval = either error id . parseOnly (evalHaijiParser conditionParser)
--- >>> let exec = either error id . parseOnly (execHaijiParser conditionParser)
+-- >>> let eval = either (error "parse error") id . parseOnly (evalHaijiParser conditionParser)
+-- >>> let exec = either (error "parse error") id . parseOnly (execHaijiParser conditionParser)
 -- >>> eval "{% if foo %}テスト{% endif %}"
 -- {% if foo %}テスト{% endif %}
 -- >>> exec "{% if foo %}テスト{% endif %}"
@@ -380,7 +380,7 @@ statement f = start "{%" <|> (start "{%-" <* resetLeadingSpaces) where
 -- >>> eval "{%if foo%}テスト{%endif%}"
 -- {% if foo %}テスト{% endif %}
 -- >>> eval "{% iffoo %}テスト{% endif %}"
--- *** Exception: Failed reading: takeWith
+-- *** Exception: parse error
 -- >>> eval "{% if foo %}真{% else %}偽{% endif %}"
 -- {% if foo %}真{% else %}偽{% endif %}
 -- >>> eval "{%if foo%}{%if bar%}{%else%}{%endif%}{%else%}{%if baz%}{%else%}{%endif%}{%endif%}"
@@ -413,8 +413,8 @@ mayElseParser = option Nothing (Just <$> elseParser) where
 
 -- |
 --
--- >>> let eval = either error id . parseOnly (evalHaijiParser foreachParser)
--- >>> let exec = either error id . parseOnly (execHaijiParser foreachParser)
+-- >>> let eval = either (error "parse error") id . parseOnly (evalHaijiParser foreachParser)
+-- >>> let exec = either (error "parse error") id . parseOnly (execHaijiParser foreachParser)
 -- >>> eval "{% for _ in foo %}loop{% endfor %}"
 -- {% for _ in foo %}loop{% endfor %}
 -- >>> exec "{% for _ in foo %}loop{% endfor %}"
@@ -422,11 +422,11 @@ mayElseParser = option Nothing (Just <$> elseParser) where
 -- >>> eval "{%for _ in foo%}loop{%endfor%}"
 -- {% for _ in foo %}loop{% endfor %}
 -- >>> eval "{% for_ in foo %}loop{% endfor %}"
--- *** Exception: Failed reading: takeWith
+-- *** Exception: parse error
 -- >>> eval "{% for _in foo %}loop{% endfor %}"
--- *** Exception: Failed reading: takeWith
+-- *** Exception: parse error
 -- >>> eval "{% for _ infoo %}loop{% endfor %}"
--- *** Exception: Failed reading: takeWith
+-- *** Exception: parse error
 -- >>> eval "{% for _ in foo %}loop{% else %}else block{% endfor %}"
 -- {% for _ in foo %}loop{% else %}else block{% endfor %}
 -- >>> eval "{%for _ in foo%}loop{%else%}else block{%endfor%}"
@@ -457,8 +457,8 @@ foreachParser = withLeadingSpacesOf startForeach restForeach where
 
 -- |
 --
--- >>> let eval = either error id . parseOnly (evalHaijiParser includeParser)
--- >>> let exec = either error id . parseOnly (execHaijiParser includeParser)
+-- >>> let eval = either (error "parse error") id . parseOnly (evalHaijiParser includeParser)
+-- >>> let exec = either (error "parse error") id . parseOnly (execHaijiParser includeParser)
 -- >>> eval "{% include \"foo.tmpl\" %}"
 -- {% include "foo.tmpl" %}
 -- >>> exec "{% include \"foo.tmpl\" %}"
@@ -482,8 +482,8 @@ includeParser = statement $ string "include" >> skipSpace >> Include . T.unpack 
 
 -- |
 --
--- >>> let eval = either error id . parseOnly (evalHaijiParser rawParser)
--- >>> let exec = either error id . parseOnly (execHaijiParser rawParser)
+-- >>> let eval = either (error "parse error") id . parseOnly (evalHaijiParser rawParser)
+-- >>> let exec = either (error "parse error") id . parseOnly (execHaijiParser rawParser)
 -- >>> eval "{% raw %}test{% endraw %}"
 -- {% raw %}test{% endraw %}
 -- >>> exec "{% raw %}test{% endraw %}"
@@ -513,8 +513,8 @@ rawParser = withLeadingSpacesOf startRaw restRaw where
 
 -- |
 --
--- >>> let eval = either error id . parseOnly (evalHaijiParser extendsParser)
--- >>> let exec = either error id . parseOnly (execHaijiParser extendsParser)
+-- >>> let eval = either (error "parse error") id . parseOnly (evalHaijiParser extendsParser)
+-- >>> let exec = either (error "parse error") id . parseOnly (execHaijiParser extendsParser)
 -- >>> eval "{% extends \"foo.tmpl\" %}"
 -- {% extends "foo.tmpl" %}
 -- >>> exec "{% extends \"foo.tmpl\" %}"
@@ -542,8 +542,8 @@ extendsParser = do
 
 -- |
 --
--- >>> let eval = either error id . parseOnly (evalHaijiParser blockParser)
--- >>> let exec = either error id . parseOnly (execHaijiParser blockParser)
+-- >>> let eval = either (error "parse error") id . parseOnly (evalHaijiParser blockParser)
+-- >>> let exec = either (error "parse error") id . parseOnly (execHaijiParser blockParser)
 -- >>> eval "{% block foo %}テスト{% endblock %}"
 -- {% block foo %}テスト{% endblock %}
 -- >>> exec "{% block foo %}テスト{% endblock %}"
@@ -551,11 +551,11 @@ extendsParser = do
 -- >>> eval "{% block foo %}テスト{% endblock foo %}"
 -- {% block foo %}テスト{% endblock %}
 -- >>> eval "{% block foo %}テスト{% endblock bar %}"
--- *** Exception: Failed reading: blockParser
+-- *** Exception: parse error
 -- >>> eval "{%block foo%}テスト{%endblock%}"
 -- {% block foo %}テスト{% endblock %}
 -- >>> eval "{% blockfoo %}テスト{% endblock %}"
--- *** Exception: Failed reading: takeWith
+-- *** Exception: parse error
 -- >>> eval "    {% block foo %}テスト{% endblock %}"
 -- {% block foo %}テスト{% endblock %}
 -- >>> exec "    {% block foo %}テスト{% endblock %}"
@@ -579,8 +579,8 @@ blockParser = withLeadingSpacesOf startBlock restBlock where
 
 -- |
 --
--- >>> let eval = either error id . parseOnly (evalHaijiParser commentParser)
--- >>> let exec = either error id . parseOnly (execHaijiParser commentParser)
+-- >>> let eval = either (error "parse error") id . parseOnly (evalHaijiParser commentParser)
+-- >>> let exec = either (error "parse error") id . parseOnly (execHaijiParser commentParser)
 -- >>> eval "{# comment #}"
 -- {# comment #}
 -- >>> exec "{# comment #}"
