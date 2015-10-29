@@ -1,8 +1,5 @@
 # NB: don't set `language: haskell` here
 
-# explicitly request container-based infrastructure
-sudo: false
-
 # See also https://github.com/hvr/multi-ghc-travis for more information
 
 # The following lines enable several GHC versions and/or HP versions
@@ -13,7 +10,6 @@ env:
   - CABALVER=1.18 GHCVER=7.8.2
   - CABALVER=1.18 GHCVER=7.8.3
   - CABALVER=1.22 GHCVER=7.10.1
-  - CABALVER=1.22 GHCVER=7.10.2
   # - CABALVER=head GHCVER=head
   - HPVER=2014.2.0.0
 
