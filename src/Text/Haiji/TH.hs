@@ -3,9 +3,13 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 module Text.Haiji.TH ( haiji, haijiFile, key, HaijiParams(..) ) where
 
+#if MIN_VERSION_base(4,8,0)
+#else
 import Control.Applicative
+#endif
 import Control.Monad.Trans.Reader
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote
