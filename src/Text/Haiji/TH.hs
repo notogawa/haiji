@@ -3,6 +3,7 @@
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GADTs #-}
 {-# LANGUAGE CPP #-}
 module Text.Haiji.TH ( haiji, haijiFile, key, HaijiParams(..) ) where
 
@@ -11,6 +12,7 @@ module Text.Haiji.TH ( haiji, haijiFile, key, HaijiParams(..) ) where
 import Control.Applicative
 #endif
 import Control.Monad.Trans.Reader
+import Data.Maybe
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote
 import Language.Haskell.TH.Syntax hiding (lift)
@@ -27,10 +29,10 @@ haiji = QuasiQuoter { quoteExp = haijiExp
                     }
 
 haijiFile :: Quasi q => FilePath -> q Exp
-haijiFile file = runQ (runIO $ parseFile file) >>= haijiASTs
+haijiFile file = runQ (runIO $ parseFile file) >>= haijiTemplate
 
 haijiExp :: Quasi q => String -> q Exp
-haijiExp str = runQ (runIO $ parseString str) >>= haijiASTs
+haijiExp str = runQ (runIO $ parseString str) >>= haijiTemplate
 
 key :: QuasiQuoter
 key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . strTyLit $ k)) |]
@@ -39,27 +41,30 @@ key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . 
                   , quoteDec = undefined
                   }
 
-haijiASTs :: Quasi q => [AST 'Loaded] -> q Exp
-haijiASTs asts = runQ [e| LT.concat <$> sequence $(listE $ map haijiAST asts) |]
+haijiTemplate :: Quasi q => Template -> q Exp
+haijiTemplate tmpl = haijiASTs (templateChild tmpl) (templateBase tmpl)
 
-haijiAST :: Quasi q => AST 'Loaded -> q Exp
-haijiAST (Literal l) =
+haijiASTs :: Quasi q => [AST 'Loaded] -> [AST 'Loaded] -> q Exp
+haijiASTs children asts = runQ [e| LT.concat <$> sequence $(listE $ map (haijiAST children) asts) |]
+
+haijiAST :: Quasi q => [AST 'Loaded] -> AST 'Loaded -> q Exp
+haijiAST _children (Literal l) =
   runQ [e| return $(litE $ stringL $ T.unpack l) |]
-haijiAST (Deref x) =
+haijiAST _children (Deref x) =
   runQ [e| do esc <- asks haijiEscape
               esc . toLT <$> $(deref x)
          |]
-haijiAST (Condition p ts fs) =
+haijiAST children (Condition p ts fs) =
   runQ [e| do cond <- $(deref p)
-              if cond then $(haijiASTs ts) else $(maybe [e| return "" |] haijiASTs fs)
+              if cond then $(haijiASTs children ts) else $(maybe [e| return "" |] (haijiASTs children) fs)
          |]
-haijiAST (Foreach k xs loopBody elseBody) =
+haijiAST children (Foreach k xs loopBody elseBody) =
   runQ [e| do dicts <- $(deref xs)
               p <- ask
               let len = length dicts
               if 0 < len
               then return $ LT.concat
-                            [ runReader $(haijiASTs loopBody)
+                            [ runReader $(haijiASTs children loopBody)
                               HaijiParams { haijiEscape = haijiEscape p
                                           , haijiDict = haijiDict p `merge`
                                                         singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
@@ -67,11 +72,13 @@ haijiAST (Foreach k xs loopBody elseBody) =
                                                         }
                             | (ix, x) <- zip [0..] dicts
                             ]
-              else $(maybe [e| return "" |] haijiASTs elseBody)
+              else $(maybe [e| return "" |] (haijiASTs children) elseBody)
          |]
-haijiAST (Raw raw) = runQ [e| return raw |]
-haijiAST (Block _base _name _scoped _body) = undefined
-haijiAST (Comment _) = runQ [e| return "" |]
+haijiAST _children (Raw raw) = runQ [e| return raw |]
+haijiAST _children (Base _asts) = undefined
+haijiAST children (Block _base name _scoped body) = haijiASTs children $ maybe body id mayChild where
+  mayChild = listToMaybe [ b | Block _ n _ b <- children, n == name ]
+haijiAST _children (Comment _) = runQ [e| return "" |]
 
 loopVariables :: Int -> Int -> TLDict '["first" :-> Bool, "index" :-> Int, "index0" :-> Int, "last" :-> Bool, "length" :-> Int, "revindex" :-> Int, "revindex0" :-> Int]
 loopVariables len ix =

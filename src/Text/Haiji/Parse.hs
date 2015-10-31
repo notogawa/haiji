@@ -8,6 +8,7 @@ module Text.Haiji.Parse
        ( Variable(..)
        , AST(..)
        , SubTemplate(..)
+       , Template(..)
        , parseString
        , parseFile
        ) where
@@ -59,15 +60,27 @@ data AST :: SubTemplate -> * where
   Include :: FilePath -> AST 'Unloaded
   Raw :: String -> AST a
   Extends :: FilePath -> AST 'Unloaded
+  Base :: [AST 'Loaded] -> AST 'Loaded
   Block :: Base -> Identifier -> Scoped -> [AST a] -> AST a
   Comment :: String -> AST a
 
 deriving instance Eq (AST a)
 
-parseString :: String -> IO [AST 'Loaded]
-parseString = either error readAllFile . parseOnly parser . T.pack
+data Template =
+  Template
+  { templateBase :: [AST 'Loaded]
+  , templateChild :: [AST 'Loaded]
+  } deriving (Eq, Show)
 
-parseFileWith :: (LT.Text -> LT.Text) -> FilePath -> IO [AST 'Loaded]
+toTemplate :: [AST 'Loaded] -> Template
+toTemplate (Base base : asts) = tmpl { templateChild = templateChild tmpl ++ asts } where
+  tmpl = toTemplate base
+toTemplate asts = Template { templateBase = asts, templateChild = [] }
+
+parseString :: String -> IO Template
+parseString = (toTemplate <$>) . either error readAllFile . parseOnly parser . T.pack
+
+parseFileWith :: (LT.Text -> LT.Text) -> FilePath -> IO Template
 parseFileWith f file = LT.readFile file >>= parseString . LT.unpack . f
 
 readAllFile :: [AST 'Unloaded] -> IO [AST 'Loaded]
@@ -84,14 +97,14 @@ parseFileRecursively (Foreach k xs loopBody elseBody) =
   ((:[]) .) . Foreach k xs
   <$> readAllFile loopBody
   <*> runMaybeT (maybe mzero return elseBody >>= lift . readAllFile)
-parseFileRecursively (Include includeFile) = parseImportFile includeFile
+parseFileRecursively (Include includeFile) = templateBase <$> parseImportFile includeFile
 parseFileRecursively (Raw raw) = return [ Raw raw ]
-parseFileRecursively (Extends extendsfile) = parseImportFile extendsfile
+parseFileRecursively (Extends extendsfile) = (:[]) . Base . templateBase <$> parseImportFile extendsfile
 parseFileRecursively (Block base name scoped body) =
   (:[]) . Block base name scoped <$> readAllFile body
 parseFileRecursively (Comment c) = return [ Comment c ]
 
-parseFile :: FilePath -> IO [AST 'Loaded]
+parseFile :: FilePath -> IO Template
 parseFile = parseFileWith deleteLastOneLF where
   deleteLastOneLF :: LT.Text -> LT.Text
   deleteLastOneLF xs
@@ -100,7 +113,7 @@ parseFile = parseFileWith deleteLastOneLF where
     | not ("\n" `LT.isSuffixOf` xs) = xs `LT.append` "\n"
     | otherwise                     = xs
 
-parseImportFile :: FilePath -> IO [AST 'Loaded]
+parseImportFile :: FilePath -> IO Template
 parseImportFile = parseFileWith deleteLastOneLF where
   deleteLastOneLF xs
     | LT.null xs         = xs
@@ -123,6 +136,7 @@ instance Show (AST a) where
   show (Include file) = "{% include \"" ++ file ++ "\" %}"
   show (Raw raw) = "{% raw %}" ++ raw ++ "{% endraw %}"
   show (Extends file) = "{% extends \"" ++ file ++ "\" %}"
+  show (Base asts) = concatMap show asts
   show (Block _ name scoped body) =
     "{% block " ++ show name ++ (if scoped then " scoped" else "") ++" %}" ++
     concatMap show body ++
