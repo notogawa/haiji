@@ -2,7 +2,7 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE DataKinds #-}
-module Main where
+module Main ( main ) where
 
 import Test.Tasty.TH
 import Test.Tasty.HUnit
