@@ -21,7 +21,7 @@ main = $(defaultMainGenerator)
 
 jinja2 :: Show a => Rendering -> a -> LT.Text -> IO LT.Text
 jinja2 rendering dict template = do
-  (code, out, err) <- readProcessWithExitCode "python" [] script
+  (code, out, err) <- readProcessWithExitCode "python2" [] script
   unless (code == ExitSuccess) $ LT.putStrLn err
   return out where
     script = LT.unlines
