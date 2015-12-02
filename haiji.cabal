@@ -45,7 +45,6 @@ test-suite doctests
   build-depends:       base
                      , doctest
                      , filepath
-                     , unix
                      , QuickCheck
   hs-source-dirs:      test
   ghc-options:         -Wall -threaded -O0

@@ -3,16 +3,11 @@ module Main ( main ) where
 import Test.DocTest
 
 import System.FilePath
-import System.Posix.Files
-
-getConfDistDir :: IO FilePath
-getConfDistDir = fmap (dirname . dirname . dirname) getModuleFile where
-  dirname = takeDirectory
-  getModuleFile = readSymbolicLink "/proc/self/exe" -- ghc 7.6.1 以降なら getExecutablePath
+import System.Environment
 
 main :: IO ()
 main = do
-  confDistDir <- getConfDistDir
+  confDistDir <- fmap (takeDirectory . takeDirectory . takeDirectory) getExecutablePath
   doctest [ "-isrc"
           , "-itest"
           , "-i" ++ confDistDir ++ "/build/autogen/"
