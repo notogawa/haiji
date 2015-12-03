@@ -50,33 +50,28 @@ case_example = do
 
 case_empty :: Assertion
 case_empty = do
-  expected <- jinja2 HTML dict "test/empty.tmpl"
-  expected @=? render HTML dict $(haijiFile "test/empty.tmpl") where
-    dict = [key|foo|] (1 :: Int)
+  expected <- jinja2 HTML empty "test/empty.tmpl"
+  expected @=? render HTML empty $(haijiFile "test/empty.tmpl")
 
 case_lf1 :: Assertion
 case_lf1 = do
-  expected <- jinja2 HTML dict "test/lf1.tmpl"
-  expected @=? render HTML dict $(haijiFile "test/lf1.tmpl") where
-    dict = [key|foo|] (1 :: Int)
+  expected <- jinja2 HTML empty "test/lf1.tmpl"
+  expected @=? render HTML empty $(haijiFile "test/lf1.tmpl")
 
 case_lf2 :: Assertion
 case_lf2 = do
-  expected <- jinja2 HTML dict "test/lf2.tmpl"
-  expected @=? render HTML dict $(haijiFile "test/lf2.tmpl") where
-    dict = [key|foo|] (1 :: Int)
+  expected <- jinja2 HTML empty "test/lf2.tmpl"
+  expected @=? render HTML empty $(haijiFile "test/lf2.tmpl")
 
 case_line_without_newline :: Assertion
 case_line_without_newline = do
-  expected <- jinja2 HTML dict "test/line_without_newline.tmpl"
-  expected @=? render HTML dict $(haijiFile "test/line_without_newline.tmpl") where
-    dict = [key|foo|] (1 :: Int)
+  expected <- jinja2 HTML empty "test/line_without_newline.tmpl"
+  expected @=? render HTML empty $(haijiFile "test/line_without_newline.tmpl")
 
 case_line_with_newline :: Assertion
 case_line_with_newline = do
-  expected <- jinja2 HTML dict "test/line_with_newline.tmpl"
-  expected @=? render HTML dict $(haijiFile "test/line_with_newline.tmpl") where
-    dict = [key|foo|] (1 :: Int)
+  expected <- jinja2 HTML empty "test/line_with_newline.tmpl"
+  expected @=? render HTML empty $(haijiFile "test/line_with_newline.tmpl")
 
 case_variables :: Assertion
 case_variables = do
@@ -167,6 +162,5 @@ case_comment = do
 
 case_extends :: Assertion
 case_extends = do
-  expected <- jinja2 HTML dict "test/child.tmpl"
-  expected @=? render HTML dict $(haijiFile "test/child.tmpl") where
-    dict = [key|seq|] ([0,2..10] :: [Integer])
+  expected <- jinja2 HTML empty "test/child.tmpl"
+  expected @=? render HTML empty $(haijiFile "test/child.tmpl")

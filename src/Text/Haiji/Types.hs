@@ -17,6 +17,7 @@
 module Text.Haiji.Types
        ( TLDict(..)
        , (:->)(..)
+       , empty
        , singleton
        , merge
        , Key(..)
@@ -39,6 +40,9 @@ infixl 2 :->
 data (k :: Symbol) :-> (v :: *) where Value :: v -> k :-> v
 
 newtype VK v k = VK (k :-> v)
+
+empty :: TLDict '[]
+empty = Empty
 
 singleton :: x -> Key k -> TLDict '[ k :-> x ]
 singleton x _ = Ext (Value x) Empty

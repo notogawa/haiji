@@ -9,6 +9,7 @@ module Text.Haiji
     , haiji
     , haijiFile
     , key
+    , empty
     , merge
     ) where
 
