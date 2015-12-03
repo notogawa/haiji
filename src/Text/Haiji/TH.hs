@@ -42,43 +42,47 @@ key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . 
                   }
 
 haijiTemplate :: Quasi q => Template -> q Exp
-haijiTemplate tmpl = haijiASTs (templateChild tmpl) (templateBase tmpl)
+haijiTemplate tmpl = haijiASTs Nothing (templateChild tmpl) (templateBase tmpl)
 
-haijiASTs :: Quasi q => [AST 'Loaded] -> [AST 'Loaded] -> q Exp
-haijiASTs children asts = runQ [e| LT.concat <$> sequence $(listE $ map (haijiAST children) asts) |]
+haijiASTs :: Quasi q => Maybe [AST 'Loaded] -> [AST 'Loaded] -> [AST 'Loaded] -> q Exp
+haijiASTs parentBlock children asts = runQ [e| LT.concat <$> sequence $(listE $ map (haijiAST parentBlock children) asts) |]
 
-haijiAST :: Quasi q => [AST 'Loaded] -> AST 'Loaded -> q Exp
-haijiAST _children (Literal l) =
+haijiAST :: Quasi q => Maybe [AST 'Loaded] -> [AST 'Loaded] -> AST 'Loaded -> q Exp
+haijiAST _parentBlock _children (Literal l) =
   runQ [e| return $(litE $ stringL $ T.unpack l) |]
-haijiAST _children (Deref x) =
+haijiAST _parentBlock _children (Eval x) =
   runQ [e| do esc <- asks haijiEscape
-              esc . toLT <$> $(deref x)
+              esc . toLT <$> $(eval x)
          |]
-haijiAST children (Condition p ts fs) =
-  runQ [e| do cond <- $(deref p)
-              if cond then $(haijiASTs children ts) else $(maybe [e| return "" |] (haijiASTs children) fs)
+haijiAST  parentBlock  children (Condition p ts fs) =
+  runQ [e| do cond <- $(eval p)
+              if cond
+              then $(haijiASTs parentBlock children ts)
+              else $(maybe [e| return "" |] (haijiASTs parentBlock children) fs)
          |]
-haijiAST children (Foreach k xs loopBody elseBody) =
-  runQ [e| do dicts <- $(deref xs)
+haijiAST  parentBlock  children (Foreach k xs loopBody elseBody) =
+  runQ [e| do dicts <- $(eval xs)
               p <- ask
               let len = length dicts
               if 0 < len
               then return $ LT.concat
-                            [ runReader $(haijiASTs children loopBody)
-                              HaijiParams { haijiEscape = haijiEscape p
-                                          , haijiDict = haijiDict p `merge`
-                                                        singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
-                                                        singleton (loopVariables len ix) (Key :: Key "loop")
-                                                        }
+                            [ runReader $(haijiASTs parentBlock children loopBody)
+                              p { haijiDict = haijiDict p `merge`
+                                              singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
+                                              singleton (loopVariables len ix) (Key :: Key "loop")
+                                }
                             | (ix, x) <- zip [0..] dicts
                             ]
-              else $(maybe [e| return "" |] (haijiASTs children) elseBody)
+              else $(maybe [e| return "" |] (haijiASTs parentBlock children) elseBody)
          |]
-haijiAST _children (Raw raw) = runQ [e| return raw |]
-haijiAST _children (Base _asts) = undefined
-haijiAST children (Block _base name _scoped body) = haijiASTs children $ maybe body id mayChild where
-  mayChild = listToMaybe [ b | Block _ n _ b <- children, n == name ]
-haijiAST _children (Comment _) = runQ [e| return "" |]
+haijiAST _parentBlock _children (Raw raw) = runQ [e| return raw |]
+haijiAST _parentBlock _children (Base _asts) = undefined
+haijiAST  parentBlock  children (Block _base name _scoped body) =
+  case listToMaybe [ b | Block _ n _ b <- children, n == name ] of
+    Nothing    -> haijiASTs parentBlock children body
+    Just child -> haijiASTs (Just body) children child
+haijiAST  parentBlock  children Super = maybe (error "invalid super()") (haijiASTs Nothing children) parentBlock
+haijiAST _parentBlock _children (Comment _) = runQ [e| return "" |]
 
 loopVariables :: Int -> Int -> TLDict '["first" :-> Bool, "index" :-> Int, "index0" :-> Int, "last" :-> Bool, "length" :-> Int, "revindex" :-> Int, "revindex0" :-> Int]
 loopVariables len ix =
@@ -98,7 +102,13 @@ instance ToLT LT.Text where toLT = id
 instance ToLT Int     where toLT = toLT . show
 instance ToLT Integer where toLT = toLT . show
 
-data HaijiParams dict = HaijiParams { haijiDict :: dict, haijiEscape :: LT.Text -> LT.Text }
+data HaijiParams dict = HaijiParams { haijiDict :: dict
+                                    , haijiEscape :: LT.Text -> LT.Text
+                                    }
+
+eval :: Quasi q => Expr -> q Exp
+eval (Var v) = deref v
+eval (Fun f) = undefined
 
 deref :: Quasi q => Variable -> q Exp
 deref (Simple v) =

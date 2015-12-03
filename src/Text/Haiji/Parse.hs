@@ -5,7 +5,9 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
 module Text.Haiji.Parse
-       ( Variable(..)
+       ( Expr(..)
+       , Variable(..)
+       , Function(..)
        , AST(..)
        , SubTemplate(..)
        , Template(..)
@@ -20,7 +22,9 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.State.Strict
 import Data.Attoparsec.Text
 import Data.Char
+import Data.List (intercalate)
 import Data.Maybe
+import Data.String
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.IO as LT
@@ -35,6 +39,17 @@ newtype Identifier = Identifier String deriving Eq
 instance Show Identifier where
   show (Identifier x) = x
 
+instance IsString Identifier where
+  fromString = Identifier
+
+data Expr = Fun Function
+          | Var Variable
+          deriving Eq
+
+instance Show Expr where
+  show (Fun f) = show f
+  show (Var v) = show v
+
 data Variable = Simple Identifier -- TODO: これだけ別の型にしておきたい
               | Attribute Variable Identifier
               | At Variable Int
@@ -45,6 +60,11 @@ instance Show Variable where
   show (Attribute v f) = shows v "." ++ show f
   show (At v ix) = shows v "[" ++ show ix ++ "]"
 
+data Function = Function Identifier [Expr] deriving Eq
+
+instance Show Function where
+  show (Function ident args) = shows ident "(" ++ intercalate ", " (map show args) ++ ")"
+
 type Scoped = Bool
 
 type Base = Bool
@@ -54,14 +74,15 @@ data SubTemplate = Loaded
 
 data AST :: SubTemplate -> * where
   Literal :: T.Text -> AST a
-  Deref :: Variable -> AST a
-  Condition :: Variable -> [AST a] -> Maybe [AST a] -> AST a
-  Foreach :: Identifier -> Variable -> [AST a] -> Maybe [AST a] -> AST a
+  Eval :: Expr -> AST a
+  Condition :: Expr -> [AST a] -> Maybe [AST a] -> AST a
+  Foreach :: Identifier -> Expr -> [AST a] -> Maybe [AST a] -> AST a
   Include :: FilePath -> AST 'Unloaded
   Raw :: String -> AST a
   Extends :: FilePath -> AST 'Unloaded
   Base :: [AST 'Loaded] -> AST 'Loaded
   Block :: Base -> Identifier -> Scoped -> [AST a] -> AST a
+  Super :: AST a
   Comment :: String -> AST a
 
 deriving instance Eq (AST a)
@@ -88,7 +109,7 @@ readAllFile asts = concat <$> mapM parseFileRecursively asts
 
 parseFileRecursively :: AST 'Unloaded -> IO [AST 'Loaded]
 parseFileRecursively (Literal l) = return [ Literal l ]
-parseFileRecursively (Deref v) = return [ Deref v ]
+parseFileRecursively (Eval v) = return [ Eval v ]
 parseFileRecursively (Condition p ts fs) =
   ((:[]) .) . Condition p
   <$> readAllFile ts
@@ -102,6 +123,7 @@ parseFileRecursively (Raw raw) = return [ Raw raw ]
 parseFileRecursively (Extends extendsfile) = (:[]) . Base . templateBase <$> parseFile extendsfile
 parseFileRecursively (Block base name scoped body) =
   (:[]) . Block base name scoped <$> readAllFile body
+parseFileRecursively Super = return [ Super ]
 parseFileRecursively (Comment c) = return [ Comment c ]
 
 parseFile :: FilePath -> IO Template
@@ -122,7 +144,7 @@ parseImportFile = parseFileWith deleteLastOneLF where
 
 instance Show (AST a) where
   show (Literal l) = T.unpack l
-  show (Deref v) = "{{ " ++ shows v " }}"
+  show (Eval v) = "{{ " ++ shows v " }}"
   show (Condition p ts mfs) =
     "{% if " ++ show p ++ " %}" ++
     concatMap show ts ++
@@ -141,6 +163,7 @@ instance Show (AST a) where
     "{% block " ++ show name ++ (if scoped then " scoped" else "") ++" %}" ++
     concatMap show body ++
     "{% endblock %}"
+  show Super = "{{ super() }}"
   show (Comment c) = "{#" ++ c ++ "#}"
 
 data HaijiParserState =
@@ -207,6 +230,7 @@ haijiParser = concat <$> many (resetLeadingSpaces *> choice (map toList parsers)
             , rawParser
             , extendsParser
             , blockParser
+            , superParser
             , commentParser
             ]
   toList p = do
@@ -258,10 +282,12 @@ literalParser = liftParser $ Literal . T.concat <$> many1 go where
 -- *** Exception: parse error
 -- >>> eval "{{ foo }} "
 -- {{ foo }}
+-- >>> eval "{{ foo() }} "
+-- {{ foo() }}
 --
 derefParser :: HaijiParser (AST 'Unloaded)
 derefParser = saveLeadingSpaces *> liftParser deref where
-  deref = Deref <$> ((string "{{" >> skipSpace) *> variableParser <* (skipSpace >> string "}}"))
+  deref = Eval <$> ((string "{{" >> skipSpace) *> exprParser <* (skipSpace >> string "}}"))
 
 -- | python identifier
 --
@@ -366,6 +392,29 @@ variableParser = identifier >>= go . Simple where
       Just '[' -> (char '[' >> skipSpace) *> decimal <* (skipSpace >> char ']') >>= go . At v
       _        -> return v
 
+exprParser :: Parser Expr
+exprParser = choice [ Fun <$> functionParser
+                    , Var <$> variableParser
+                    ]
+
+-- |
+--
+-- >>> let eval = either (error "parse error") id . parseOnly functionParser
+-- >>> eval "foo()"
+-- foo()
+-- >>> eval "super()"
+-- *** Exception: parse error
+-- >>> eval "foo(a)"
+-- foo(a)
+-- >>> eval "foo( x , test , a.b )"
+-- foo(x, test, a.b)
+--
+functionParser :: Parser Function
+functionParser = do
+  ident <- identifier <* skipSpace
+  when (ident == "super") $ fail "functionParser"
+  Function ident <$> (char '(' >> sepBy (skipSpace >> exprParser <* skipSpace) (char ',') <* char ')')
+
 -- |
 --
 -- >>> let exec = either (error "parse error") id . parseOnly (execHaijiParser $ statement $ return ())
@@ -410,7 +459,7 @@ statement f = start "{%" <|> (start "{%-" <* resetLeadingSpaces) where
 --
 conditionParser :: HaijiParser (AST 'Unloaded)
 conditionParser = withLeadingSpacesOf startCondition restCondition where
-  startCondition = statement $ string "if" >> skipMany1 space >> variableParser
+  startCondition = statement $ string "if" >> skipMany1 space >> exprParser
   restCondition cond = do
     ifPart <- haijiParser
     mElsePart <- mayElseParser
@@ -458,7 +507,7 @@ foreachParser :: HaijiParser (AST 'Unloaded)
 foreachParser = withLeadingSpacesOf startForeach restForeach where
   startForeach = statement $ Foreach
                  <$> (string "for" >> skipMany1 space >> identifier)
-                 <*> (skipMany1 space >> string "in" >> skipMany1 space >> variableParser)
+                 <*> (skipMany1 space >> string "in" >> skipMany1 space >> exprParser)
   restForeach foreach = do
     loopPart <- haijiParser
     mElsePart <- mayElseParser
@@ -590,6 +639,14 @@ blockParser = withLeadingSpacesOf startBlock restBlock where
     if maybe True (name ==) mayEndName
       then return $ Block base name False (body ++ maybeToList leadingEndBlockSpaces)
       else fail "blockParser"
+
+superParser :: HaijiParser (AST 'Unloaded)
+superParser = do
+  saveLeadingSpaces
+  _ <- liftParser ((string "{{" *> skipSpace) *>
+                   (string "super" *> skipSpace >> char '(' >> skipSpace >> char ')') <*
+                   (skipSpace *> string "}}"))
+  return Super
 
 -- |
 --

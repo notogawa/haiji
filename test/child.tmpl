@@ -1,5 +1,6 @@
 {% extends "test/parent.tmpl" %}
-{% block title %}{{ baz }}{% endblock %}
+{% block title %}{{ super() }}{{ baz }}{{ super() }}{% endblock %}
 {% block head %}
+ {{ super() }}
  <style type="text/css"></style>
 {% endblock %}
