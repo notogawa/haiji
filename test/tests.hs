@@ -48,6 +48,36 @@ case_example = do
            [key|foo|] (1 :: Int) `merge`
            [key|bar|] ("" :: String)
 
+case_empty :: Assertion
+case_empty = do
+  expected <- jinja2 HTML dict "test/empty.tmpl"
+  expected @=? render HTML dict $(haijiFile "test/empty.tmpl") where
+    dict = [key|foo|] (1 :: Int)
+
+case_lf1 :: Assertion
+case_lf1 = do
+  expected <- jinja2 HTML dict "test/lf1.tmpl"
+  expected @=? render HTML dict $(haijiFile "test/lf1.tmpl") where
+    dict = [key|foo|] (1 :: Int)
+
+case_lf2 :: Assertion
+case_lf2 = do
+  expected <- jinja2 HTML dict "test/lf2.tmpl"
+  expected @=? render HTML dict $(haijiFile "test/lf2.tmpl") where
+    dict = [key|foo|] (1 :: Int)
+
+case_line_without_newline :: Assertion
+case_line_without_newline = do
+  expected <- jinja2 HTML dict "test/line_without_newline.tmpl"
+  expected @=? render HTML dict $(haijiFile "test/line_without_newline.tmpl") where
+    dict = [key|foo|] (1 :: Int)
+
+case_line_with_newline :: Assertion
+case_line_with_newline = do
+  expected <- jinja2 HTML dict "test/line_with_newline.tmpl"
+  expected @=? render HTML dict $(haijiFile "test/line_with_newline.tmpl") where
+    dict = [key|foo|] (1 :: Int)
+
 case_variables :: Assertion
 case_variables = do
   expected <- jinja2 HTML dict "test/variables.tmpl"
