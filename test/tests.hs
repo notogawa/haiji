@@ -164,3 +164,9 @@ case_comment = do
   expected <- jinja2 HTML dict "test/comment.tmpl"
   expected @=? render HTML dict $(haijiFile "test/comment.tmpl") where
     dict = [key|seq|] ([0,2..10] :: [Integer])
+
+case_extends :: Assertion
+case_extends = do
+  expected <- jinja2 HTML dict "test/child.tmpl"
+  expected @=? render HTML dict $(haijiFile "test/child.tmpl") where
+    dict = [key|seq|] ([0,2..10] :: [Integer])

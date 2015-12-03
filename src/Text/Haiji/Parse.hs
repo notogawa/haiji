@@ -99,7 +99,7 @@ parseFileRecursively (Foreach k xs loopBody elseBody) =
   <*> runMaybeT (maybe mzero return elseBody >>= lift . readAllFile)
 parseFileRecursively (Include includeFile) = templateBase <$> parseImportFile includeFile
 parseFileRecursively (Raw raw) = return [ Raw raw ]
-parseFileRecursively (Extends extendsfile) = (:[]) . Base . templateBase <$> parseImportFile extendsfile
+parseFileRecursively (Extends extendsfile) = (:[]) . Base . templateBase <$> parseFile extendsfile
 parseFileRecursively (Block base name scoped body) =
   (:[]) . Block base name scoped <$> readAllFile body
 parseFileRecursively (Comment c) = return [ Comment c ]
