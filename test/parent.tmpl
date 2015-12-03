@@ -1,8 +1,10 @@
 <html>
 <head>
 {% block head %}
-  <title>{% block title %}{% endblock %}</title>
+  <title>{{ foo }}{% block title %}{% endblock %}</title>
 {% endblock %}
 </head>
-<body></body>
+<body>
+  {{ bar }}
+</body>
 </html>

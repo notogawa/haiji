@@ -162,5 +162,8 @@ case_comment = do
 
 case_extends :: Assertion
 case_extends = do
-  expected <- jinja2 HTML empty "test/child.tmpl"
-  expected @=? render HTML empty $(haijiFile "test/child.tmpl")
+  expected <- jinja2 HTML dict "test/child.tmpl"
+  expected @=? render HTML dict  $(haijiFile "test/child.tmpl") where
+    dict = [key|foo|] ("foo" :: T.Text) `merge`
+           [key|bar|] ("bar" :: T.Text) `merge`
+           [key|baz|] ("baz" :: T.Text)
