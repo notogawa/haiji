@@ -2,11 +2,13 @@
 {-# LANGUAGE TemplateHaskell #-}
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE DataKinds #-}
+{-# LANGUAGE CPP #-}
 module Main ( main ) where
 
-import Test.Tasty.TH
-import Test.Tasty.HUnit
-
+#if MIN_VERSION_base(4,8,0)
+#else
+import Control.Applicative
+#endif
 import Control.Monad
 import Text.Haiji
 import Data.Aeson
@@ -16,6 +18,8 @@ import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.IO as LT
 import System.Exit
 import System.Process.Text.Lazy
+import Test.Tasty.TH
+import Test.Tasty.HUnit
 
 main :: IO ()
 main = $(defaultMainGenerator)
