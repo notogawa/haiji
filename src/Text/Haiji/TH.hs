@@ -19,7 +19,7 @@ import Language.Haskell.TH.Syntax hiding (lift)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import Text.Haiji.Parse
-import Text.Haiji.Types
+import Text.Haiji.Dictionary
 
 haiji :: QuasiQuoter
 haiji = QuasiQuoter { quoteExp = haijiExp

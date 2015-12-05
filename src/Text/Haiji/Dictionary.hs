@@ -14,7 +14,7 @@
 {-# LANGUAGE OverlappingInstances #-}
 #endif
 {-# LANGUAGE ScopedTypeVariables #-}
-module Text.Haiji.Types
+module Text.Haiji.Dictionary
        ( TLDict(..)
        , (:->)(..)
        , empty

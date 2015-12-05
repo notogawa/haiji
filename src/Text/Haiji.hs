@@ -15,7 +15,7 @@ module Text.Haiji
 
 import Control.Monad.Trans.Reader
 import Text.Haiji.TH
-import Text.Haiji.Types
+import Text.Haiji.Dictionary
 import Text.Haiji.Rendering
 import qualified Data.Text.Lazy as LT
 
