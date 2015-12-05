@@ -1,5 +1,4 @@
 {-# LANGUAGE TemplateHaskell #-}
-{-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -95,13 +94,6 @@ loopVariables len ix =
   Ext (Value (len - ix)      :: "revindex"  :-> Int ) $
   Ext (Value (len - ix - 1)  :: "revindex0" :-> Int ) $
   Empty
-
-class ToLT a where toLT :: a -> LT.Text
-instance ToLT String  where toLT = LT.pack
-instance ToLT T.Text  where toLT = LT.fromStrict
-instance ToLT LT.Text where toLT = id
-instance ToLT Int     where toLT = toLT . show
-instance ToLT Integer where toLT = toLT . show
 
 eval :: Quasi q => Expr -> q Exp
 eval (Var v) = deref v

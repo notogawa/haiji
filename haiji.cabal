@@ -27,6 +27,7 @@ library
                        Text.Haiji.TH
                        Text.Haiji.Types
                        Text.Haiji.Dictionary
+                       Text.Haiji.Dynamic
   build-depends:       base >=4.7 && <4.9
                      , text
                      , attoparsec >=0.10
@@ -35,6 +36,9 @@ library
                      , aeson
                      , transformers
                      , mtl >=1.1
+                     , vector
+                     , unordered-containers
+                     , scientific
   hs-source-dirs:      src
   ghc-options:         -Wall
   default-language:    Haskell2010
@@ -54,6 +58,7 @@ test-suite tests
   type:                exitcode-stdio-1.0
   main-is:             tests.hs
   build-depends:       base
+                     , aeson
                      , haiji
                      , tasty
                      , tasty-th
