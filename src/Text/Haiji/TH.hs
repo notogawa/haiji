@@ -5,7 +5,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE CPP #-}
-module Text.Haiji.TH ( haiji, haijiFile, key, HaijiParams(..) ) where
+module Text.Haiji.TH ( haiji, haijiFile, key ) where
 
 #if MIN_VERSION_base(4,8,0)
 #else
@@ -20,6 +20,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import Text.Haiji.Parse
 import Text.Haiji.Dictionary
+import Text.Haiji.Types
 
 haiji :: QuasiQuoter
 haiji = QuasiQuoter { quoteExp = haijiExp
@@ -51,8 +52,8 @@ haijiAST :: Quasi q => Maybe [AST 'Loaded] -> [AST 'Loaded] -> AST 'Loaded -> q 
 haijiAST _parentBlock _children (Literal l) =
   runQ [e| return $(litE $ stringL $ T.unpack l) |]
 haijiAST _parentBlock _children (Eval x) =
-  runQ [e| do esc <- asks haijiEscape
-              esc . toLT <$> $(eval x)
+  runQ [e| do esc <- asks renderSettingsEscape
+              (`escapeBy` esc) . toLT <$> $(eval x)
          |]
 haijiAST  parentBlock  children (Condition p ts fs) =
   runQ [e| do cond <- $(eval p)
@@ -67,9 +68,9 @@ haijiAST  parentBlock  children (Foreach k xs loopBody elseBody) =
               if 0 < len
               then return $ LT.concat
                             [ runReader $(haijiASTs parentBlock children loopBody)
-                              p { haijiDict = haijiDict p `merge`
-                                              singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
-                                              singleton (loopVariables len ix) (Key :: Key "loop")
+                              p { renderSettingsDict = renderSettingsDict p `merge`
+                                                       singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
+                                                       singleton (loopVariables len ix) (Key :: Key "loop")
                                 }
                             | (ix, x) <- zip [0..] dicts
                             ]
@@ -84,7 +85,7 @@ haijiAST  parentBlock  children (Block _base name _scoped body) =
 haijiAST  parentBlock  children Super = maybe (error "invalid super()") (haijiASTs Nothing children) parentBlock
 haijiAST _parentBlock _children (Comment _) = runQ [e| return "" |]
 
-loopVariables :: Int -> Int -> TLDict '["first" :-> Bool, "index" :-> Int, "index0" :-> Int, "last" :-> Bool, "length" :-> Int, "revindex" :-> Int, "revindex0" :-> Int]
+loopVariables :: Int -> Int -> Dict '["first" :-> Bool, "index" :-> Int, "index0" :-> Int, "last" :-> Bool, "length" :-> Int, "revindex" :-> Int, "revindex0" :-> Int]
 loopVariables len ix =
   Ext (Value (ix == 0)       :: "first"     :-> Bool) $
   Ext (Value (ix + 1)        :: "index"     :-> Int ) $
@@ -102,17 +103,13 @@ instance ToLT LT.Text where toLT = id
 instance ToLT Int     where toLT = toLT . show
 instance ToLT Integer where toLT = toLT . show
 
-data HaijiParams dict = HaijiParams { haijiDict :: dict
-                                    , haijiEscape :: LT.Text -> LT.Text
-                                    }
-
 eval :: Quasi q => Expr -> q Exp
 eval (Var v) = deref v
 eval (Fun f) = undefined
 
 deref :: Quasi q => Variable -> q Exp
 deref (Simple v) =
-  runQ [e| retrieve <$> asks haijiDict <*> return (Key :: Key $(litT . strTyLit $ show v)) |]
+  runQ [e| retrieve <$> asks renderSettingsDict <*> return (Key :: Key $(litT . strTyLit $ show v)) |]
 deref (Attribute v f) =
   runQ [e| retrieve <$> $(deref v) <*> return (Key :: Key $(litT . strTyLit $ show f)) |]
 deref (At v ix) =

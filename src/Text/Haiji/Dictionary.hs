@@ -15,7 +15,7 @@
 #endif
 {-# LANGUAGE ScopedTypeVariables #-}
 module Text.Haiji.Dictionary
-       ( TLDict(..)
+       ( Dict(..)
        , (:->)(..)
        , empty
        , singleton
@@ -41,10 +41,10 @@ data (k :: Symbol) :-> (v :: *) where Value :: v -> k :-> v
 
 newtype VK v k = VK (k :-> v)
 
-empty :: TLDict '[]
+empty :: Dict '[]
 empty = Empty
 
-singleton :: x -> Key k -> TLDict '[ k :-> x ]
+singleton :: x -> Key k -> Dict '[ k :-> x ]
 singleton x _ = Ext (Value x) Empty
 
 value :: k :-> v -> v
@@ -56,26 +56,26 @@ key = symbolVal . VK
 class Retrieve d k v where
   retrieve :: d -> Key k -> v
 #if MIN_VERSION_base(4,8,0)
-instance {-# OVERLAPPABLE #-} (IsTLDict d, IsTLDict (kv ': d), Retrieve (TLDict d) k v) => Retrieve (TLDict (kv ': d)) k v where
+instance {-# OVERLAPPABLE #-} (IsDict d, IsDict (kv ': d), Retrieve (Dict d) k v) => Retrieve (Dict (kv ': d)) k v where
 #else
-instance                      (IsTLDict d, IsTLDict (kv ': d), Retrieve (TLDict d) k v) => Retrieve (TLDict (kv ': d)) k v where
+instance                      (IsDict d, IsDict (kv ': d), Retrieve (Dict d) k v) => Retrieve (Dict (kv ': d)) k v where
 #endif
   retrieve (Ext _ d) k = retrieve d k
 #if MIN_VERSION_base(4,8,0)
-instance {-# OVERLAPPING #-} (IsTLDict d, IsTLDict (((k :-> v') ': d)), v' ~ v) => Retrieve (TLDict ((k :-> v') ': d)) k v where
+instance {-# OVERLAPPING #-} (IsDict d, IsDict (((k :-> v') ': d)), v' ~ v) => Retrieve (Dict ((k :-> v') ': d)) k v where
 #else
-instance                     (IsTLDict d, IsTLDict (((k :-> v') ': d)), v' ~ v) => Retrieve (TLDict ((k :-> v') ': d)) k v where
+instance                     (IsDict d, IsDict (((k :-> v') ': d)), v' ~ v) => Retrieve (Dict ((k :-> v') ': d)) k v where
 #endif
   retrieve (Ext (Value v) _) _ = v
 
-data TLDict (kv :: [*]) where
-  Empty :: TLDict '[]
-  Ext :: k :-> v -> TLDict d -> TLDict ((k :-> v) ': d)
+data Dict (kv :: [*]) where
+  Empty :: Dict '[]
+  Ext :: k :-> v -> Dict d -> Dict ((k :-> v) ': d)
 
-instance ToJSON (TLDict '[]) where
+instance ToJSON (Dict '[]) where
   toJSON Empty = object []
 
-instance (ToJSON (TLDict s), ToJSON kv) => ToJSON (TLDict (kv ': s)) where
+instance (ToJSON (Dict s), ToJSON kv) => ToJSON (Dict (kv ': s)) where
   toJSON (Ext x xs) = Object (a <> b) where
     Object a = toJSON x
     Object b = toJSON xs
@@ -83,20 +83,20 @@ instance (ToJSON (TLDict s), ToJSON kv) => ToJSON (TLDict (kv ': s)) where
 instance (ToJSON v, KnownSymbol k) => ToJSON (k :-> v) where
   toJSON x = object [ T.pack (key x) .= value x ]
 
-instance ToJSON (TLDict s) => Show (TLDict s) where
+instance ToJSON (Dict s) => Show (Dict s) where
   show = LT.unpack . LT.decodeUtf8 . encode
 
-type AsTLDict s = Normalize (Sort s)
+type AsDict s = Normalize (Sort s)
 
-asTLDict :: (Sortable d, Normalizable (Sort d)) => TLDict d -> TLDict (AsTLDict d)
-asTLDict = normalize . quicksort
+asDict :: (Sortable d, Normalizable (Sort d)) => Dict d -> Dict (AsDict d)
+asDict = normalize . quicksort
 
-type IsTLDict d = (d ~ Normalize (Sort d))
+type IsDict d = (d ~ Normalize (Sort d))
 
 type Merge xs ys = Normalize (Sort (xs :++ ys))
 
-merge :: (Mergeable a b) => TLDict a -> TLDict b -> TLDict (Merge a b)
-merge a b = asTLDict $ append a b
+merge :: (Mergeable a b) => Dict a -> Dict b -> Dict (Merge a b)
+merge a b = asDict $ append a b
 
 type Mergeable a b = (Sortable (a :++ b), Normalizable (Sort (a :++ b)))
 
@@ -106,7 +106,7 @@ type family Append (xs :: [k]) (ys :: [k]) :: [k] where
 
 type (xs :: [k]) :++ (ys :: [k]) = Append xs ys
 
-append :: TLDict xs -> TLDict ys -> TLDict (xs :++ ys)
+append :: Dict xs -> Dict ys -> Dict (xs :++ ys)
 append Empty ys = ys
 append (Ext x xs) ys = Ext x (append xs ys)
 
@@ -117,7 +117,7 @@ type family Normalize d :: [*] where
   Normalize (kv1 ': kv2 ': d) = kv1 ': Normalize (kv2 ': d)
 
 class Normalizable d where
-  normalize :: TLDict d -> TLDict (Normalize d)
+  normalize :: Dict d -> Dict (Normalize d)
 instance Normalizable '[] where
   normalize d = d
 instance Normalizable '[kv] where
@@ -150,7 +150,7 @@ type family Filter (f :: Flag) (p :: k) (xs :: [k]) :: [k] where
   Filter 'FMax p (x ': xs) = If (Cmp x p == 'GT || Cmp x p == 'EQ) (x ': Filter 'FMax p xs) (Filter 'FMax p xs)
 
 class Sortable xs where
-  quicksort :: TLDict xs -> TLDict (Sort xs)
+  quicksort :: Dict xs -> Dict (Sort xs)
 instance Sortable '[] where
   quicksort Empty = Empty
 instance ( Sortable (Filter 'FMin p xs)
@@ -164,12 +164,12 @@ instance ( Sortable (Filter 'FMin p xs)
     more = filterV (Proxy :: Proxy 'FMax)
 
 class FilterV (f::Flag) p xs where
-  filterV :: Proxy f -> p -> TLDict xs -> TLDict (Filter f p xs)
+  filterV :: Proxy f -> p -> Dict xs -> Dict (Filter f p xs)
 instance FilterV f p '[] where
   filterV _ _ _ = Empty
 
 class Conder g where
-  cond :: Proxy g -> TLDict s -> TLDict t -> TLDict (If g s t)
+  cond :: Proxy g -> Dict s -> Dict t -> Dict (If g s t)
 instance Conder 'True where
   cond _ s _ = s
 instance Conder 'False where

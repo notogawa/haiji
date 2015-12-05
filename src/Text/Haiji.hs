@@ -4,23 +4,26 @@
 {-# LANGUAGE FlexibleContexts #-}
 module Text.Haiji
     ( render
-    , Rendering(..)
-    , Template
+    , Tmpl
     , haiji
     , haijiFile
+    , rawEscape
+    , htmlEscape
     , key
     , empty
     , merge
     ) where
 
 import Control.Monad.Trans.Reader
+import qualified Data.Aeson as JSON
 import Text.Haiji.TH
+import Text.Haiji.Types
 import Text.Haiji.Dictionary
-import Text.Haiji.Rendering
 import qualified Data.Text.Lazy as LT
 
 
-type Template require = Reader (HaijiParams (TLDict require)) LT.Text
+render :: Escape -> Dict s -> Tmpl (Dict s) -> LT.Text
+render escape dict template = runReader template $ RenderSettings dict escape
 
-render :: Rendering -> TLDict s -> Template s -> LT.Text
-render rendering dict template = runReader template $ HaijiParams dict (escape rendering)
+render' :: Escape -> Dict s -> Tmpl JSON.Value -> LT.Text
+render' escape dict template = undefined
