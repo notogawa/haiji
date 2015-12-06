@@ -22,10 +22,9 @@ import qualified Data.Aeson as JSON
 import Text.Haiji.TH
 import Text.Haiji.Types
 import Text.Haiji.Dictionary
-import Text.Haiji.Dynamic
+import Text.Haiji.Unsafe
 import Text.Haiji.Parse
 import qualified Data.Text.Lazy as LT
-
 
 render :: Escape -> Dict s -> Tmpl (Dict s) -> LT.Text
 render escape dict template = runReader template $ RenderSettings dict escape

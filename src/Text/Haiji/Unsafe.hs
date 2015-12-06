@@ -2,7 +2,7 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE CPP #-}
-module Text.Haiji.Dynamic ( unsafeTmpl ) where
+module Text.Haiji.Unsafe ( unsafeTmpl ) where
 
 #if MIN_VERSION_base(4,8,0)
 #else
