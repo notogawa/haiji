@@ -12,6 +12,7 @@ import Control.Applicative ( (<$>) )
 import Control.Monad
 import Text.Haiji
 import Data.Aeson
+import Data.Default
 import Data.Monoid
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
@@ -24,8 +25,8 @@ import Test.Tasty.HUnit
 main :: IO ()
 main = $(defaultMainGenerator)
 
-jinja2 :: Show a => a -> LT.Text -> IO LT.Text
-jinja2 dict template = do
+jinja2 :: Show a => FilePath -> a -> IO LT.Text
+jinja2 template dict = do
   (code, out, err) <- readProcessWithExitCode "python2" [] script
   unless (code == ExitSuccess) $ LT.putStrLn err
   return out where
@@ -34,7 +35,7 @@ jinja2 dict template = do
              , "from jinja2 import Environment, PackageLoader"
              , "sys.stdout = codecs.lookup('utf_8')[-1](sys.stdout)"
              , "env = Environment(loader=PackageLoader('example', '.'),autoescape=True)"
-             , "template = env.get_template('" <> template <> "')"
+             , "template = env.get_template('" <> LT.pack template <> "')"
              , "object = json.loads(" <> LT.pack (show $ show dict) <> ")"
              , "print template.render(object),"
              , "exit()"
@@ -42,10 +43,10 @@ jinja2 dict template = do
 
 case_example :: Assertion
 case_example = do
-  expected <- jinja2 dict "example.tmpl"
-  expected @=? render htmlEscape dict $(haijiFile "example.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "example.tmpl"
-  expected @=? render' htmlEscape (toJSON dict) tmpl
+  expected <- jinja2 "example.tmpl" dict
+  expected @=? render $(haijiFile def "example.tmpl") dict
+  tmpl <- unsafeTmpl def <$> parseFile "example.tmpl"
+  expected @=? render' tmpl (toJSON dict)
     where
       dict = [key|a_variable|] ("Hello,World!" :: T.Text) `merge`
              [key|navigation|] [ [key|caption|] ("A" :: LT.Text) `merge`
@@ -58,45 +59,45 @@ case_example = do
 
 case_empty :: Assertion
 case_empty = do
-  expected <- jinja2 empty "test/empty.tmpl"
-  expected @=? render htmlEscape empty $(haijiFile "test/empty.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/empty.tmpl"
-  expected @=? render' htmlEscape (toJSON empty) tmpl
+  expected <- jinja2 "test/empty.tmpl" empty
+  expected @=? render $(haijiFile def "test/empty.tmpl") empty
+  tmpl <- unsafeTmpl def <$> parseFile "test/empty.tmpl"
+  expected @=? render' tmpl (toJSON empty)
 
 case_lf1 :: Assertion
 case_lf1 = do
-  expected <- jinja2 empty "test/lf1.tmpl"
-  expected @=? render htmlEscape empty $(haijiFile "test/lf1.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/lf1.tmpl"
-  expected @=? render' htmlEscape (toJSON empty) tmpl
+  expected <- jinja2 "test/lf1.tmpl" empty
+  expected @=? render $(haijiFile def "test/lf1.tmpl") empty
+  tmpl <- unsafeTmpl def <$> parseFile "test/lf1.tmpl"
+  expected @=? render' tmpl (toJSON empty)
 
 case_lf2 :: Assertion
 case_lf2 = do
-  expected <- jinja2 empty "test/lf2.tmpl"
-  expected @=? render htmlEscape empty $(haijiFile "test/lf2.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/lf2.tmpl"
-  expected @=? render' htmlEscape (toJSON empty) tmpl
+  expected <- jinja2 "test/lf2.tmpl" empty
+  expected @=? render $(haijiFile def "test/lf2.tmpl") empty
+  tmpl <- unsafeTmpl def <$> parseFile "test/lf2.tmpl"
+  expected @=? render' tmpl (toJSON empty)
 
 case_line_without_newline :: Assertion
 case_line_without_newline = do
-  expected <- jinja2 empty "test/line_without_newline.tmpl"
-  expected @=? render htmlEscape empty $(haijiFile "test/line_without_newline.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/line_without_newline.tmpl"
-  expected @=? render' htmlEscape (toJSON empty) tmpl
+  expected <- jinja2 "test/line_without_newline.tmpl" empty
+  expected @=? render $(haijiFile def "test/line_without_newline.tmpl") empty
+  tmpl <- unsafeTmpl def <$> parseFile "test/line_without_newline.tmpl"
+  expected @=? render' tmpl (toJSON empty)
 
 case_line_with_newline :: Assertion
 case_line_with_newline = do
-  expected <- jinja2 empty "test/line_with_newline.tmpl"
-  expected @=? render htmlEscape empty $(haijiFile "test/line_with_newline.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/line_with_newline.tmpl"
-  expected @=? render' htmlEscape (toJSON empty) tmpl
+  expected <- jinja2 "test/line_with_newline.tmpl" empty
+  expected @=? render $(haijiFile def "test/line_with_newline.tmpl") empty
+  tmpl <- unsafeTmpl def <$> parseFile "test/line_with_newline.tmpl"
+  expected @=? render' tmpl (toJSON empty)
 
 case_variables :: Assertion
 case_variables = do
-  expected <- jinja2 dict "test/variables.tmpl"
-  expected @=? render htmlEscape dict $(haijiFile "test/variables.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/variables.tmpl"
-  expected @=? render' htmlEscape (toJSON dict) tmpl
+  expected <- jinja2 "test/variables.tmpl" dict
+  expected @=? render $(haijiFile def "test/variables.tmpl") dict
+  tmpl <- unsafeTmpl def <$> parseFile "test/variables.tmpl"
+  expected @=? render' tmpl (toJSON dict)
     where
       dict = [key|foo|] ("normal" :: T.Text) `merge`
              [key|_foo|] ("start '_'" :: LT.Text) `merge`
@@ -106,10 +107,10 @@ case_variables = do
 
 case_HTML_escape :: Assertion
 case_HTML_escape = do
-  expected <- jinja2 dict "test/HTML_escape.tmpl"
-  expected @=? render htmlEscape dict $(haijiFile "test/HTML_escape.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/HTML_escape.tmpl"
-  expected @=? render' htmlEscape (toJSON dict) tmpl
+  expected <- jinja2 "test/HTML_escape.tmpl" dict
+  expected @=? render $(haijiFile def "test/HTML_escape.tmpl") dict
+  tmpl <- unsafeTmpl def <$> parseFile "test/HTML_escape.tmpl"
+  expected @=? render' tmpl (toJSON dict)
     where
       dict = [key|foo|] ([' '..'\126'] :: String)
 
@@ -124,10 +125,10 @@ case_condition = do
   testCondition False False True
   testCondition False False False where
     testCondition foo bar baz = do
-      expected <- jinja2 dict "test/condition.tmpl"
-      expected @=? render htmlEscape dict $(haijiFile "test/condition.tmpl")
-      tmpl <- unsafeTmpl <$> parseFile "test/condition.tmpl"
-      expected @=? render' htmlEscape (toJSON dict) tmpl
+      expected <- jinja2 "test/condition.tmpl" dict
+      expected @=? render $(haijiFile def "test/condition.tmpl") dict
+      tmpl <- unsafeTmpl def <$> parseFile "test/condition.tmpl"
+      expected @=? render' tmpl (toJSON dict)
         where
           dict = [key|foo|] foo `merge`
                  [key|bar|] bar `merge`
@@ -135,19 +136,19 @@ case_condition = do
 
 case_foreach :: Assertion
 case_foreach = do
-  expected <- jinja2 dict "test/foreach.tmpl"
-  expected @=? render htmlEscape dict $(haijiFile "test/foreach.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/foreach.tmpl"
-  expected @=? render' htmlEscape (toJSON dict) tmpl
+  expected <- jinja2 "test/foreach.tmpl" dict
+  expected @=? render $(haijiFile def "test/foreach.tmpl") dict
+  tmpl <- unsafeTmpl def <$> parseFile "test/foreach.tmpl"
+  expected @=? render' tmpl (toJSON dict)
     where
       dict = [key|foo|] ([0,2..10] :: [Int])
 
 case_foreach_shadowing :: Assertion
 case_foreach_shadowing = do
-  expected <- jinja2 dict "test/foreach.tmpl"
-  expected @=? render htmlEscape dict $(haijiFile "test/foreach.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/foreach.tmpl"
-  expected @=? render' htmlEscape (toJSON dict) tmpl
+  expected <- jinja2 "test/foreach.tmpl" dict
+  expected @=? render $(haijiFile def "test/foreach.tmpl") dict
+  tmpl <- unsafeTmpl def <$> parseFile "test/foreach.tmpl"
+  expected @=? render' tmpl (toJSON dict)
   False @=? ("bar" `LT.isInfixOf` expected)
     where
       dict = [key|foo|] ([0,2..10] :: [Int]) `merge`
@@ -155,10 +156,10 @@ case_foreach_shadowing = do
 
 case_foreach_else_block :: Assertion
 case_foreach_else_block = do
-  expected <- jinja2 dict "test/foreach_else_block.tmpl"
-  expected @=? render htmlEscape dict $(haijiFile "test/foreach_else_block.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/foreach_else_block.tmpl"
-  expected @=? render' htmlEscape (toJSON dict) tmpl
+  expected <- jinja2 "test/foreach_else_block.tmpl" dict
+  expected @=? render $(haijiFile def "test/foreach_else_block.tmpl") dict
+  tmpl <- unsafeTmpl def <$> parseFile "test/foreach_else_block.tmpl"
+  expected @=? render' tmpl (toJSON dict)
     where
       dict = [key|foo|] ([] :: [Int])
 
@@ -167,56 +168,56 @@ case_include = do
   testInclude ([0..10] :: [Int])
   testInclude (["","\n","\n\n"] :: [String]) where
     testInclude xs = do
-      expected <- jinja2 dict "test/include.tmpl"
-      expected @=? render htmlEscape dict $(haijiFile "test/include.tmpl")
-      tmpl <- unsafeTmpl <$> parseFile "test/include.tmpl"
-      expected @=? render' htmlEscape (toJSON dict) tmpl
+      expected <- jinja2 "test/include.tmpl" dict
+      expected @=? render $(haijiFile def "test/include.tmpl") dict
+      tmpl <- unsafeTmpl def <$> parseFile "test/include.tmpl"
+      expected @=? render' tmpl (toJSON dict)
         where
           dict = [key|foo|] xs
 
 case_raw :: Assertion
 case_raw = do
-  expected <- jinja2 dict "test/raw.tmpl"
-  expected @=? render htmlEscape dict $(haijiFile "test/raw.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/raw.tmpl"
-  expected @=? render' htmlEscape (toJSON dict) tmpl
+  expected <- jinja2 "test/raw.tmpl" dict
+  expected @=? render $(haijiFile def "test/raw.tmpl") dict
+  tmpl <- unsafeTmpl def <$> parseFile "test/raw.tmpl"
+  expected @=? render' tmpl (toJSON dict)
     where
       dict = [key|foo|] ([0,2..10] :: [Int]) `merge`
              [key|bar|] ("bar" :: String)
 
 case_loop_variables :: Assertion
 case_loop_variables = do
-  expected <- jinja2 dict "test/loop_variables.tmpl"
-  expected @=? render htmlEscape dict $(haijiFile "test/loop_variables.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/loop_variables.tmpl"
-  expected @=? render' htmlEscape (toJSON dict) tmpl
+  expected <- jinja2 "test/loop_variables.tmpl" dict
+  expected @=? render $(haijiFile def "test/loop_variables.tmpl") dict
+  tmpl <- unsafeTmpl def <$> parseFile "test/loop_variables.tmpl"
+  expected @=? render' tmpl (toJSON dict)
     where
       dict = [key|foo|] ([0,2..10] :: [Integer])
 
 case_whitespace_control :: Assertion
 case_whitespace_control = do
-  expected <- jinja2 dict "test/whitespace_control.tmpl"
-  expected @=? render htmlEscape dict $(haijiFile "test/whitespace_control.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/whitespace_control.tmpl"
-  expected @=? render' htmlEscape (toJSON dict) tmpl
+  expected <- jinja2 "test/whitespace_control.tmpl" dict
+  expected @=? render $(haijiFile def "test/whitespace_control.tmpl") dict
+  tmpl <- unsafeTmpl def <$> parseFile "test/whitespace_control.tmpl"
+  expected @=? render' tmpl (toJSON dict)
     where
       dict = [key|seq|] ([0,2..10] :: [Integer])
 
 case_comment :: Assertion
 case_comment = do
-  expected <- jinja2 dict "test/comment.tmpl"
-  expected @=? render htmlEscape dict $(haijiFile "test/comment.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/comment.tmpl"
-  expected @=? render' htmlEscape (toJSON dict) tmpl
+  expected <- jinja2 "test/comment.tmpl" dict
+  expected @=? render $(haijiFile def "test/comment.tmpl") dict
+  tmpl <- unsafeTmpl def <$> parseFile "test/comment.tmpl"
+  expected @=? render' tmpl (toJSON dict)
     where
       dict = [key|seq|] ([0,2..10] :: [Integer])
 
 case_extends :: Assertion
 case_extends = do
-  expected <- jinja2 dict "test/child.tmpl"
-  expected @=? render htmlEscape dict $(haijiFile "test/child.tmpl")
-  tmpl <- unsafeTmpl <$> parseFile "test/child.tmpl"
-  expected @=? render' htmlEscape (toJSON dict) tmpl
+  expected <- jinja2 "test/child.tmpl" dict
+  expected @=? render $(haijiFile def "test/child.tmpl") dict
+  tmpl <- unsafeTmpl def <$> parseFile "test/child.tmpl"
+  expected @=? render' tmpl (toJSON dict)
     where
       dict = [key|foo|] ("foo" :: T.Text) `merge`
              [key|bar|] ("bar" :: T.Text) `merge`

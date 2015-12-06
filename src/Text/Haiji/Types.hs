@@ -3,7 +3,8 @@
 {-# LANGUAGE FlexibleInstances #-}
 module Text.Haiji.Types
        ( Tmpl
-       , RenderSettings(..)
+       , Environments
+       , autoEscape
        , Escape
        , escapeBy
        , rawEscape
@@ -13,6 +14,7 @@ module Text.Haiji.Types
        ) where
 
 import Control.Monad.Trans.Reader
+import Data.Default
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 
@@ -33,12 +35,21 @@ htmlEscape = Escape (LT.concatMap replace) where
   replace '>'  = "&gt;"
   replace h    = LT.singleton h
 
-data RenderSettings dict =
-  RenderSettings { renderSettingsDict :: dict
-                 , renderSettingsEscape :: Escape
-                 }
+data Environments =
+  Environments
+  { autoEscape :: Bool
+  } deriving (Eq, Show)
 
-type Tmpl dict = Reader (RenderSettings dict) LT.Text
+defaultEnvironments :: Environments
+defaultEnvironments =
+  Environments
+  { autoEscape = True
+  }
+
+instance Default Environments where
+  def = defaultEnvironments
+
+type Tmpl dict = Reader dict LT.Text
 
 class ToLT a where toLT :: a -> LT.Text
 instance ToLT String  where toLT = LT.pack

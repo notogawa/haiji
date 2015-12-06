@@ -21,18 +21,18 @@ import Text.Haiji.Parse
 import Text.Haiji.Dictionary
 import Text.Haiji.Types
 
-haiji :: QuasiQuoter
-haiji = QuasiQuoter { quoteExp = haijiExp
-                    , quotePat = undefined
-                    , quoteType = undefined
-                    , quoteDec = undefined
-                    }
+haiji :: Environments -> QuasiQuoter
+haiji env = QuasiQuoter { quoteExp = haijiExp env
+                        , quotePat = undefined
+                        , quoteType = undefined
+                        , quoteDec = undefined
+                        }
 
-haijiFile :: Quasi q => FilePath -> q Exp
-haijiFile file = runQ (runIO $ parseFile file) >>= haijiTemplate
+haijiFile :: Quasi q => Environments -> FilePath -> q Exp
+haijiFile env file = runQ (runIO $ parseFile file) >>= haijiTemplate env
 
-haijiExp :: Quasi q => String -> q Exp
-haijiExp str = runQ (runIO $ parseString str) >>= haijiTemplate
+haijiExp :: Quasi q => Environments -> String -> q Exp
+haijiExp env str = runQ (runIO $ parseString str) >>= haijiTemplate env
 
 key :: QuasiQuoter
 key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . strTyLit $ k)) |]
@@ -41,48 +41,48 @@ key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . 
                   , quoteDec = undefined
                   }
 
-haijiTemplate :: Quasi q => Template -> q Exp
-haijiTemplate tmpl = haijiASTs Nothing (templateChild tmpl) (templateBase tmpl)
+haijiTemplate :: Quasi q => Environments -> Template -> q Exp
+haijiTemplate env tmpl = haijiASTs env Nothing (templateChild tmpl) (templateBase tmpl)
 
-haijiASTs :: Quasi q => Maybe [AST 'Loaded] -> [AST 'Loaded] -> [AST 'Loaded] -> q Exp
-haijiASTs parentBlock children asts = runQ [e| LT.concat <$> sequence $(listE $ map (haijiAST parentBlock children) asts) |]
+haijiASTs :: Quasi q => Environments -> Maybe [AST 'Loaded] -> [AST 'Loaded] -> [AST 'Loaded] -> q Exp
+haijiASTs env parentBlock children asts = runQ [e| LT.concat <$> sequence $(listE $ map (haijiAST env parentBlock children) asts) |]
 
-haijiAST :: Quasi q => Maybe [AST 'Loaded] -> [AST 'Loaded] -> AST 'Loaded -> q Exp
-haijiAST _parentBlock _children (Literal l) =
+haijiAST :: Quasi q => Environments -> Maybe [AST 'Loaded] -> [AST 'Loaded] -> AST 'Loaded -> q Exp
+haijiAST env _parentBlock _children (Literal l) =
   runQ [e| return $(litE $ stringL $ T.unpack l) |]
-haijiAST _parentBlock _children (Eval x) =
-  runQ [e| do esc <- asks renderSettingsEscape
-              (`escapeBy` esc) . toLT <$> $(eval x)
-         |]
-haijiAST  parentBlock  children (Condition p ts fs) =
+haijiAST env _parentBlock _children (Eval x) =
+  if autoEscape env
+  then runQ [e| (`escapeBy` htmlEscape) . toLT <$> $(eval x) |]
+  else runQ [e| (`escapeBy` rawEscape) . toLT <$> $(eval x) |]
+haijiAST env  parentBlock  children (Condition p ts fs) =
   runQ [e| do cond <- $(eval p)
               if cond
-              then $(haijiASTs parentBlock children ts)
-              else $(maybe [e| return "" |] (haijiASTs parentBlock children) fs)
+              then $(haijiASTs env parentBlock children ts)
+              else $(maybe [e| return "" |] (haijiASTs env parentBlock children) fs)
          |]
-haijiAST  parentBlock  children (Foreach k xs loopBody elseBody) =
+haijiAST env  parentBlock  children (Foreach k xs loopBody elseBody) =
   runQ [e| do dicts <- $(eval xs)
               p <- ask
               let len = length dicts
               if 0 < len
               then return $ LT.concat
-                            [ runReader $(haijiASTs parentBlock children loopBody)
-                              p { renderSettingsDict = renderSettingsDict p `merge`
-                                                       singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
-                                                       singleton (loopVariables len ix) (Key :: Key "loop")
-                                }
+                            [ runReader $(haijiASTs env parentBlock children loopBody)
+                              (p `merge`
+                               singleton x (Key :: Key $(litT . strTyLit $ show k)) `merge`
+                               singleton (loopVariables len ix) (Key :: Key "loop")
+                              )
                             | (ix, x) <- zip [0..] dicts
                             ]
-              else $(maybe [e| return "" |] (haijiASTs parentBlock children) elseBody)
+              else $(maybe [e| return "" |] (haijiASTs env parentBlock children) elseBody)
          |]
-haijiAST _parentBlock _children (Raw raw) = runQ [e| return raw |]
-haijiAST _parentBlock _children (Base _asts) = undefined
-haijiAST  parentBlock  children (Block _base name _scoped body) =
+haijiAST env _parentBlock _children (Raw raw) = runQ [e| return raw |]
+haijiAST env _parentBlock _children (Base _asts) = undefined
+haijiAST env  parentBlock  children (Block _base name _scoped body) =
   case listToMaybe [ b | Block _ n _ b <- children, n == name ] of
-    Nothing    -> haijiASTs parentBlock children body
-    Just child -> haijiASTs (Just body) children child
-haijiAST  parentBlock  children Super = maybe (error "invalid super()") (haijiASTs Nothing children) parentBlock
-haijiAST _parentBlock _children (Comment _) = runQ [e| return "" |]
+    Nothing    -> haijiASTs env parentBlock children body
+    Just child -> haijiASTs env (Just body) children child
+haijiAST env  parentBlock  children Super = maybe (error "invalid super()") (haijiASTs env Nothing children) parentBlock
+haijiAST env _parentBlock _children (Comment _) = runQ [e| return "" |]
 
 loopVariables :: Int -> Int -> Dict '["first" :-> Bool, "index" :-> Int, "index0" :-> Int, "last" :-> Bool, "length" :-> Int, "revindex" :-> Int, "revindex0" :-> Int]
 loopVariables len ix =
@@ -101,7 +101,7 @@ eval (Fun _) = undefined
 
 deref :: Quasi q => Variable -> q Exp
 deref (Simple v) =
-  runQ [e| retrieve <$> asks renderSettingsDict <*> return (Key :: Key $(litT . strTyLit $ show v)) |]
+  runQ [e| retrieve <$> ask <*> return (Key :: Key $(litT . strTyLit $ show v)) |]
 deref (Attribute v f) =
   runQ [e| retrieve <$> $(deref v) <*> return (Key :: Key $(litT . strTyLit $ show f)) |]
 deref (At v ix) =

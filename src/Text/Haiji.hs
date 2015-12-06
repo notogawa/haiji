@@ -26,8 +26,8 @@ import Text.Haiji.Unsafe
 import Text.Haiji.Parse
 import qualified Data.Text.Lazy as LT
 
-render :: Escape -> Dict s -> Tmpl (Dict s) -> LT.Text
-render escape dict template = runReader template $ RenderSettings dict escape
+render :: Tmpl (Dict s) -> Dict s -> LT.Text
+render = runReader
 
-render' :: Escape -> JSON.Value -> Tmpl JSON.Value -> LT.Text
-render' escape dict template = runReader template $ RenderSettings dict escape
+render' :: Tmpl JSON.Value -> JSON.Value -> LT.Text
+render' = runReader
