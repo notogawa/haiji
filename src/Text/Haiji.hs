@@ -5,12 +5,12 @@
 module Text.Haiji
     ( render
     , Tmpl
+    , Environments
+    , Dict
     , haiji
     , haijiFile
-    , rawEscape
-    , htmlEscape
-    , key
     , empty
+    , key
     , merge
     , unsafeTmpl
     , parseFile
