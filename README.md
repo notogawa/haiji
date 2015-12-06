@@ -9,6 +9,18 @@ Haiji is a template engine which is subset of jinja2.
 This is designed to free from the unintended rendering result
 by strictly typed variable interpolation.
 
+## Typed Template
+
+~~~~
+{{ foo }}
+~~~~
+
+For example, this jinja2 template requires "foo".
+A dictionary which provides a variable "foo" is required to render it.
+If a variable "foo" does not exist in a given dictionary,
+jinja2 evaluates it to an empty string,
+whereas haiji treats this case as compile error.
+
 ## Support Features
 
 ### Variables
