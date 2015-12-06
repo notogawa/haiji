@@ -12,9 +12,6 @@ import Control.Monad.Trans.Reader
 import qualified Data.Aeson as JSON
 import qualified Data.Aeson.Types as JSON
 import Data.Maybe
-import Language.Haskell.TH
-import Language.Haskell.TH.Quote
-import Language.Haskell.TH.Syntax hiding (lift)
 import qualified Data.HashMap.Strict as HM
 import Data.Scientific
 import qualified Data.Text as T
@@ -38,8 +35,8 @@ haijiAST _parentBlock _children (Eval x) =
      case obj of
        JSON.String s -> return $ (`escapeBy` esc) $ toLT s
        JSON.Number n -> case floatingOrInteger n of
-         Left _  -> undefined
-         Right n -> return $ (`escapeBy` esc) $ toLT (n :: Integer)
+         Left  r -> const undefined (r :: Double)
+         Right i -> return $ (`escapeBy` esc) $ toLT (i :: Integer)
        _ -> undefined
 haijiAST  parentBlock  children (Condition p ts fs) =
   do JSON.Bool cond <- eval p
@@ -84,7 +81,7 @@ loopVariables len ix = JSON.object [ "first"     JSON..= (ix == 0)
 
 eval :: Expr -> Reader (RenderSettings JSON.Value) JSON.Value
 eval (Var v) = deref v
-eval (Fun f) = undefined
+eval (Fun _) = undefined
 
 deref :: Variable -> Reader (RenderSettings JSON.Value) JSON.Value
 deref (Simple v) = do
