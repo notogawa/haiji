@@ -23,11 +23,11 @@ source-repository head
 
 library
   exposed-modules:     Text.Haiji
+                       Text.Haiji.Runtime
   other-modules:       Text.Haiji.Parse
                        Text.Haiji.TH
                        Text.Haiji.Types
                        Text.Haiji.Dictionary
-                       Text.Haiji.Unsafe
   build-depends:       base >=4.7 && <4.9
                      , text
                      , attoparsec >=0.10

@@ -4,7 +4,11 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE CPP #-}
-module Text.Haiji.TH ( haiji, haijiFile, key ) where
+module Text.Haiji.TH
+       ( haiji
+       , haijiFile
+       , key
+       ) where
 
 #if MIN_VERSION_base(4,8,0)
 #else

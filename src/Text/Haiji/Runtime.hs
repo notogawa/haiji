@@ -2,7 +2,9 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE CPP #-}
-module Text.Haiji.Unsafe ( unsafeTmpl ) where
+module Text.Haiji.Runtime
+       ( readTemplateFile
+       ) where
 
 #if MIN_VERSION_base(4,8,0)
 #else
@@ -19,6 +21,9 @@ import qualified Data.Text.Lazy as LT
 import qualified Data.Vector as V
 import Text.Haiji.Parse
 import Text.Haiji.Types
+
+readTemplateFile :: Environments -> FilePath -> IO (Tmpl JSON.Value)
+readTemplateFile env file = unsafeTmpl env <$> parseFile file
 
 unsafeTmpl :: Environments -> Template -> Tmpl JSON.Value
 unsafeTmpl env tmpl = Tmpl $ haijiASTs env Nothing (templateChild tmpl) (templateBase tmpl)
