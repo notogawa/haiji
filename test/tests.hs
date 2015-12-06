@@ -46,7 +46,7 @@ case_example = do
   expected <- jinja2 "example.tmpl" dict
   expected @=? render $(haijiFile def "example.tmpl") dict
   tmpl <- unsafeTmpl def <$> parseFile "example.tmpl"
-  expected @=? render' tmpl (toJSON dict)
+  expected @=? render tmpl (toJSON dict)
     where
       dict = [key|a_variable|] ("Hello,World!" :: T.Text) `merge`
              [key|navigation|] [ [key|caption|] ("A" :: LT.Text) `merge`
@@ -62,42 +62,42 @@ case_empty = do
   expected <- jinja2 "test/empty.tmpl" empty
   expected @=? render $(haijiFile def "test/empty.tmpl") empty
   tmpl <- unsafeTmpl def <$> parseFile "test/empty.tmpl"
-  expected @=? render' tmpl (toJSON empty)
+  expected @=? render tmpl (toJSON empty)
 
 case_lf1 :: Assertion
 case_lf1 = do
   expected <- jinja2 "test/lf1.tmpl" empty
   expected @=? render $(haijiFile def "test/lf1.tmpl") empty
   tmpl <- unsafeTmpl def <$> parseFile "test/lf1.tmpl"
-  expected @=? render' tmpl (toJSON empty)
+  expected @=? render tmpl (toJSON empty)
 
 case_lf2 :: Assertion
 case_lf2 = do
   expected <- jinja2 "test/lf2.tmpl" empty
   expected @=? render $(haijiFile def "test/lf2.tmpl") empty
   tmpl <- unsafeTmpl def <$> parseFile "test/lf2.tmpl"
-  expected @=? render' tmpl (toJSON empty)
+  expected @=? render tmpl (toJSON empty)
 
 case_line_without_newline :: Assertion
 case_line_without_newline = do
   expected <- jinja2 "test/line_without_newline.tmpl" empty
   expected @=? render $(haijiFile def "test/line_without_newline.tmpl") empty
   tmpl <- unsafeTmpl def <$> parseFile "test/line_without_newline.tmpl"
-  expected @=? render' tmpl (toJSON empty)
+  expected @=? render tmpl (toJSON empty)
 
 case_line_with_newline :: Assertion
 case_line_with_newline = do
   expected <- jinja2 "test/line_with_newline.tmpl" empty
   expected @=? render $(haijiFile def "test/line_with_newline.tmpl") empty
   tmpl <- unsafeTmpl def <$> parseFile "test/line_with_newline.tmpl"
-  expected @=? render' tmpl (toJSON empty)
+  expected @=? render tmpl (toJSON empty)
 
 case_variables :: Assertion
 case_variables = do
   expected <- jinja2 "test/variables.tmpl" dict
   expected @=? render $(haijiFile def "test/variables.tmpl") dict
   tmpl <- unsafeTmpl def <$> parseFile "test/variables.tmpl"
-  expected @=? render' tmpl (toJSON dict)
+  expected @=? render tmpl (toJSON dict)
     where
       dict = [key|foo|] ("normal" :: T.Text) `merge`
              [key|_foo|] ("start '_'" :: LT.Text) `merge`
@@ -110,7 +110,7 @@ case_HTML_escape = do
   expected <- jinja2 "test/HTML_escape.tmpl" dict
   expected @=? render $(haijiFile def "test/HTML_escape.tmpl") dict
   tmpl <- unsafeTmpl def <$> parseFile "test/HTML_escape.tmpl"
-  expected @=? render' tmpl (toJSON dict)
+  expected @=? render tmpl (toJSON dict)
     where
       dict = [key|foo|] ([' '..'\126'] :: String)
 
@@ -128,7 +128,7 @@ case_condition = do
       expected <- jinja2 "test/condition.tmpl" dict
       expected @=? render $(haijiFile def "test/condition.tmpl") dict
       tmpl <- unsafeTmpl def <$> parseFile "test/condition.tmpl"
-      expected @=? render' tmpl (toJSON dict)
+      expected @=? render tmpl (toJSON dict)
         where
           dict = [key|foo|] foo `merge`
                  [key|bar|] bar `merge`
@@ -139,7 +139,7 @@ case_foreach = do
   expected <- jinja2 "test/foreach.tmpl" dict
   expected @=? render $(haijiFile def "test/foreach.tmpl") dict
   tmpl <- unsafeTmpl def <$> parseFile "test/foreach.tmpl"
-  expected @=? render' tmpl (toJSON dict)
+  expected @=? render tmpl (toJSON dict)
     where
       dict = [key|foo|] ([0,2..10] :: [Int])
 
@@ -148,7 +148,7 @@ case_foreach_shadowing = do
   expected <- jinja2 "test/foreach.tmpl" dict
   expected @=? render $(haijiFile def "test/foreach.tmpl") dict
   tmpl <- unsafeTmpl def <$> parseFile "test/foreach.tmpl"
-  expected @=? render' tmpl (toJSON dict)
+  expected @=? render tmpl (toJSON dict)
   False @=? ("bar" `LT.isInfixOf` expected)
     where
       dict = [key|foo|] ([0,2..10] :: [Int]) `merge`
@@ -159,7 +159,7 @@ case_foreach_else_block = do
   expected <- jinja2 "test/foreach_else_block.tmpl" dict
   expected @=? render $(haijiFile def "test/foreach_else_block.tmpl") dict
   tmpl <- unsafeTmpl def <$> parseFile "test/foreach_else_block.tmpl"
-  expected @=? render' tmpl (toJSON dict)
+  expected @=? render tmpl (toJSON dict)
     where
       dict = [key|foo|] ([] :: [Int])
 
@@ -171,7 +171,7 @@ case_include = do
       expected <- jinja2 "test/include.tmpl" dict
       expected @=? render $(haijiFile def "test/include.tmpl") dict
       tmpl <- unsafeTmpl def <$> parseFile "test/include.tmpl"
-      expected @=? render' tmpl (toJSON dict)
+      expected @=? render tmpl (toJSON dict)
         where
           dict = [key|foo|] xs
 
@@ -180,7 +180,7 @@ case_raw = do
   expected <- jinja2 "test/raw.tmpl" dict
   expected @=? render $(haijiFile def "test/raw.tmpl") dict
   tmpl <- unsafeTmpl def <$> parseFile "test/raw.tmpl"
-  expected @=? render' tmpl (toJSON dict)
+  expected @=? render tmpl (toJSON dict)
     where
       dict = [key|foo|] ([0,2..10] :: [Int]) `merge`
              [key|bar|] ("bar" :: String)
@@ -190,7 +190,7 @@ case_loop_variables = do
   expected <- jinja2 "test/loop_variables.tmpl" dict
   expected @=? render $(haijiFile def "test/loop_variables.tmpl") dict
   tmpl <- unsafeTmpl def <$> parseFile "test/loop_variables.tmpl"
-  expected @=? render' tmpl (toJSON dict)
+  expected @=? render tmpl (toJSON dict)
     where
       dict = [key|foo|] ([0,2..10] :: [Integer])
 
@@ -199,7 +199,7 @@ case_whitespace_control = do
   expected <- jinja2 "test/whitespace_control.tmpl" dict
   expected @=? render $(haijiFile def "test/whitespace_control.tmpl") dict
   tmpl <- unsafeTmpl def <$> parseFile "test/whitespace_control.tmpl"
-  expected @=? render' tmpl (toJSON dict)
+  expected @=? render tmpl (toJSON dict)
     where
       dict = [key|seq|] ([0,2..10] :: [Integer])
 
@@ -208,7 +208,7 @@ case_comment = do
   expected <- jinja2 "test/comment.tmpl" dict
   expected @=? render $(haijiFile def "test/comment.tmpl") dict
   tmpl <- unsafeTmpl def <$> parseFile "test/comment.tmpl"
-  expected @=? render' tmpl (toJSON dict)
+  expected @=? render tmpl (toJSON dict)
     where
       dict = [key|seq|] ([0,2..10] :: [Integer])
 
@@ -217,7 +217,7 @@ case_extends = do
   expected <- jinja2 "test/child.tmpl" dict
   expected @=? render $(haijiFile def "test/child.tmpl") dict
   tmpl <- unsafeTmpl def <$> parseFile "test/child.tmpl"
-  expected @=? render' tmpl (toJSON dict)
+  expected @=? render tmpl (toJSON dict)
     where
       dict = [key|foo|] ("foo" :: T.Text) `merge`
              [key|bar|] ("bar" :: T.Text) `merge`

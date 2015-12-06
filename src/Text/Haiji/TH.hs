@@ -42,25 +42,25 @@ key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . 
                   }
 
 haijiTemplate :: Quasi q => Environments -> Template -> q Exp
-haijiTemplate env tmpl = haijiASTs env Nothing (templateChild tmpl) (templateBase tmpl)
+haijiTemplate env tmpl = runQ [e| Tmpl $(haijiASTs env Nothing (templateChild tmpl) (templateBase tmpl)) |]
 
 haijiASTs :: Quasi q => Environments -> Maybe [AST 'Loaded] -> [AST 'Loaded] -> [AST 'Loaded] -> q Exp
 haijiASTs env parentBlock children asts = runQ [e| LT.concat <$> sequence $(listE $ map (haijiAST env parentBlock children) asts) |]
 
 haijiAST :: Quasi q => Environments -> Maybe [AST 'Loaded] -> [AST 'Loaded] -> AST 'Loaded -> q Exp
-haijiAST env _parentBlock _children (Literal l) =
+haijiAST _env _parentBlock _children (Literal l) =
   runQ [e| return $(litE $ stringL $ T.unpack l) |]
-haijiAST env _parentBlock _children (Eval x) =
+haijiAST  env _parentBlock _children (Eval x) =
   if autoEscape env
   then runQ [e| (`escapeBy` htmlEscape) . toLT <$> $(eval x) |]
   else runQ [e| (`escapeBy` rawEscape) . toLT <$> $(eval x) |]
-haijiAST env  parentBlock  children (Condition p ts fs) =
+haijiAST  env  parentBlock  children (Condition p ts fs) =
   runQ [e| do cond <- $(eval p)
               if cond
               then $(haijiASTs env parentBlock children ts)
               else $(maybe [e| return "" |] (haijiASTs env parentBlock children) fs)
          |]
-haijiAST env  parentBlock  children (Foreach k xs loopBody elseBody) =
+haijiAST  env  parentBlock  children (Foreach k xs loopBody elseBody) =
   runQ [e| do dicts <- $(eval xs)
               p <- ask
               let len = length dicts
@@ -75,14 +75,14 @@ haijiAST env  parentBlock  children (Foreach k xs loopBody elseBody) =
                             ]
               else $(maybe [e| return "" |] (haijiASTs env parentBlock children) elseBody)
          |]
-haijiAST env _parentBlock _children (Raw raw) = runQ [e| return raw |]
-haijiAST env _parentBlock _children (Base _asts) = undefined
-haijiAST env  parentBlock  children (Block _base name _scoped body) =
+haijiAST _env _parentBlock _children (Raw raw) = runQ [e| return raw |]
+haijiAST _env _parentBlock _children (Base _asts) = undefined
+haijiAST  env  parentBlock  children (Block _base name _scoped body) =
   case listToMaybe [ b | Block _ n _ b <- children, n == name ] of
     Nothing    -> haijiASTs env parentBlock children body
     Just child -> haijiASTs env (Just body) children child
-haijiAST env  parentBlock  children Super = maybe (error "invalid super()") (haijiASTs env Nothing children) parentBlock
-haijiAST env _parentBlock _children (Comment _) = runQ [e| return "" |]
+haijiAST  env  parentBlock  children Super = maybe (error "invalid super()") (haijiASTs env Nothing children) parentBlock
+haijiAST _env _parentBlock _children (Comment _) = runQ [e| return "" |]
 
 loopVariables :: Int -> Int -> Dict '["first" :-> Bool, "index" :-> Int, "index0" :-> Int, "last" :-> Bool, "length" :-> Int, "revindex" :-> Int, "revindex0" :-> Int]
 loopVariables len ix =

@@ -20,16 +20,16 @@ import qualified Data.Vector as V
 import Text.Haiji.Parse
 import Text.Haiji.Types
 
-unsafeTmpl :: Environments -> Template -> Reader JSON.Value LT.Text
-unsafeTmpl env tmpl = haijiASTs env Nothing (templateChild tmpl) (templateBase tmpl)
+unsafeTmpl :: Environments -> Template -> Tmpl JSON.Value
+unsafeTmpl env tmpl = Tmpl $ haijiASTs env Nothing (templateChild tmpl) (templateBase tmpl)
 
 haijiASTs :: Environments -> Maybe [AST 'Loaded] -> [AST 'Loaded] -> [AST 'Loaded] -> Reader JSON.Value LT.Text
 haijiASTs env parentBlock children asts = LT.concat <$> sequence (map (haijiAST env parentBlock children) asts)
 
 haijiAST :: Environments -> Maybe [AST 'Loaded] -> [AST 'Loaded] -> AST 'Loaded -> Reader JSON.Value LT.Text
-haijiAST env _parentBlock _children (Literal l) =
+haijiAST _env _parentBlock _children (Literal l) =
   return $ LT.fromStrict l
-haijiAST env _parentBlock _children (Eval x) =
+haijiAST  env _parentBlock _children (Eval x) =
   do let esc = if autoEscape env then htmlEscape else rawEscape
      obj <- eval x
      case obj of
@@ -38,12 +38,12 @@ haijiAST env _parentBlock _children (Eval x) =
          Left  r -> const undefined (r :: Double)
          Right i -> return $ (`escapeBy` esc) $ toLT (i :: Integer)
        _ -> undefined
-haijiAST env  parentBlock  children (Condition p ts fs) =
+haijiAST  env  parentBlock  children (Condition p ts fs) =
   do JSON.Bool cond <- eval p
      if cond
      then haijiASTs env parentBlock children ts
      else maybe (return "") (haijiASTs env parentBlock children) fs
-haijiAST env  parentBlock  children (Foreach k xs loopBody elseBody) =
+haijiAST  env  parentBlock  children (Foreach k xs loopBody elseBody) =
   do JSON.Array dicts <- eval xs
      p <- ask
      let len = V.length dicts
@@ -59,14 +59,14 @@ haijiAST env  parentBlock  children (Foreach k xs loopBody elseBody) =
                    ]
      else maybe (return "") (haijiASTs env parentBlock children) elseBody
 
-haijiAST env _parentBlock _children (Raw raw) = return $ LT.pack raw
-haijiAST env _parentBlock _children (Base _asts) = undefined
-haijiAST env  parentBlock  children (Block _base name _scoped body) =
+haijiAST _env _parentBlock _children (Raw raw) = return $ LT.pack raw
+haijiAST _env _parentBlock _children (Base _asts) = undefined
+haijiAST  env  parentBlock  children (Block _base name _scoped body) =
   case listToMaybe [ b | Block _ n _ b <- children, n == name ] of
     Nothing    -> haijiASTs env parentBlock children body
     Just child -> haijiASTs env (Just body) children child
-haijiAST env  parentBlock  children Super = maybe (error "invalid super()") (haijiASTs env Nothing children) parentBlock
-haijiAST env _parentBlock _children (Comment _) = return ""
+haijiAST  env  parentBlock  children Super = maybe (error "invalid super()") (haijiASTs env Nothing children) parentBlock
+haijiAST _env _parentBlock _children (Comment _) = return ""
 
 loopVariables :: Int -> Int -> JSON.Value
 loopVariables len ix = JSON.object [ "first"     JSON..= (ix == 0)
