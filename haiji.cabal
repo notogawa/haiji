@@ -28,6 +28,9 @@ library
                        Text.Haiji.TH
                        Text.Haiji.Types
                        Text.Haiji.Dictionary
+                       Text.Haiji.Syntax
+                       Text.Haiji.Syntax.Identifier
+                       Text.Haiji.Syntax.Variable
   build-depends:       base >=4.7 && <4.9
                      , text
                      , attoparsec >=0.10

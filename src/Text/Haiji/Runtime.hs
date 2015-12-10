@@ -88,12 +88,9 @@ eval (Var v) = deref v
 eval (Fun _) = undefined
 
 deref :: Variable -> Reader JSON.Value JSON.Value
-deref (Simple v) = do
+deref (VariableBase v) = do
   dict <- ask
-  maybe (error $ show (Simple v, dict)) return $ JSON.parseMaybe (JSON.withObject (show v) (JSON..: (T.pack $ show v))) dict
-deref (Attribute v f) = do
+  maybe (error $ show (VariableBase v, dict)) return $ JSON.parseMaybe (JSON.withObject (show v) (JSON..: (T.pack $ show v))) dict
+deref (VariableAttribute v f) = do
   dict <- deref v
   maybe (error "2") return $ JSON.parseMaybe (JSON.withObject (show f) (JSON..: (T.pack $ show f))) dict
-deref (At v ix) = do
-  dict <- deref v
-  maybe (error "3") return $ JSON.parseMaybe (JSON.withArray "" (\a -> return $ a V.! ix)) dict

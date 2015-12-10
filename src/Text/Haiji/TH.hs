@@ -103,9 +103,7 @@ eval (Var v) = deref v
 eval (Fun _) = undefined
 
 deref :: Quasi q => Variable -> q Exp
-deref (Simple v) =
+deref (VariableBase v) =
   runQ [e| retrieve <$> ask <*> return (Key :: Key $(litT . strTyLit $ show v)) |]
-deref (Attribute v f) =
+deref (VariableAttribute v f) =
   runQ [e| retrieve <$> $(deref v) <*> return (Key :: Key $(litT . strTyLit $ show f)) |]
-deref (At v ix) =
-  runQ [e| (!! ix) <$> $(deref v) |]
