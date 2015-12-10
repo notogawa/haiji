@@ -1,3 +1,4 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
@@ -7,6 +8,10 @@ module Text.Haiji.Parse
        , parseFile
        ) where
 
+#if MIN_VERSION_base(4,8,0)
+#else
+import Control.Applicative
+#endif
 import Control.Monad
 import Control.Monad.Trans
 import Control.Monad.Trans.Maybe
