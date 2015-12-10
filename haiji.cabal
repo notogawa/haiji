@@ -29,6 +29,7 @@ library
                        Text.Haiji.Types
                        Text.Haiji.Dictionary
                        Text.Haiji.Syntax
+                       Text.Haiji.Syntax.AST
                        Text.Haiji.Syntax.Identifier
                        Text.Haiji.Syntax.Expression
                        Text.Haiji.Syntax.Variable

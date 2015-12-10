@@ -21,6 +21,7 @@ import Language.Haskell.TH.Syntax hiding (lift)
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import Text.Haiji.Parse
+import Text.Haiji.Syntax
 import Text.Haiji.Dictionary
 import Text.Haiji.Types
 

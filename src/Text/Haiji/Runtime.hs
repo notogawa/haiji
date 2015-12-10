@@ -20,6 +20,7 @@ import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Vector as V
 import Text.Haiji.Parse
+import Text.Haiji.Syntax
 import Text.Haiji.Types
 
 readTemplateFile :: Environments -> FilePath -> IO (Tmpl JSON.Value)
