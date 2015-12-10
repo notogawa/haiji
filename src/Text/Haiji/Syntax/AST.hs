@@ -10,10 +10,7 @@ module Text.Haiji.Syntax.AST
        , parser
        ) where
 
-#if MIN_VERSION_base(4,8,0)
-#else
 import Control.Applicative
-#endif
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Attoparsec.Text
