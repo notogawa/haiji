@@ -5,7 +5,7 @@
 {-# LANGUAGE KindSignatures #-}
 {-# LANGUAGE StandaloneDeriving #-}
 module Text.Haiji.Parse
-       ( Expr(..)
+       ( Expression(..)
        , Variable(..)
        , AST(..)
        , SubTemplate(..)
@@ -21,7 +21,6 @@ import Control.Monad.Trans.Maybe
 import Control.Monad.State.Strict
 import Data.Attoparsec.Text
 import Data.Char
-import Data.List (intercalate)
 import Data.Maybe
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
@@ -29,16 +28,11 @@ import qualified Data.Text.Lazy.IO as LT
 
 import Text.Haiji.Syntax.Identifier
 import Text.Haiji.Syntax.Variable
+import Text.Haiji.Syntax.Expression
 
 -- $setup
 -- >>> :set -XOverloadedStrings
 -- >>> let execHaijiParser p = snd <$> runHaijiParser p
-
-data Expr = Var Variable
-          deriving Eq
-
-instance Show Expr where
-  show (Var v) = show v
 
 type Scoped = Bool
 
@@ -49,9 +43,9 @@ data SubTemplate = Loaded
 
 data AST :: SubTemplate -> * where
   Literal :: T.Text -> AST a
-  Eval :: Expr -> AST a
-  Condition :: Expr -> [AST a] -> Maybe [AST a] -> AST a
-  Foreach :: Identifier -> Expr -> [AST a] -> Maybe [AST a] -> AST a
+  Eval :: Expression -> AST a
+  Condition :: Expression -> [AST a] -> Maybe [AST a] -> AST a
+  Foreach :: Identifier -> Expression -> [AST a] -> Maybe [AST a] -> AST a
   Include :: FilePath -> AST 'Unloaded
   Raw :: String -> AST a
   Extends :: FilePath -> AST 'Unloaded
@@ -260,12 +254,7 @@ literalParser = liftParser $ Literal . T.concat <$> many1 go where
 --
 derefParser :: HaijiParser (AST 'Unloaded)
 derefParser = saveLeadingSpaces *> liftParser deref where
-  deref = Eval <$> ((string "{{" >> skipSpace) *> exprParser <* (skipSpace >> string "}}"))
-
-
-exprParser :: Parser Expr
-exprParser = choice [ Var <$> variable
-                    ]
+  deref = Eval <$> ((string "{{" >> skipSpace) *> expression <* (skipSpace >> string "}}"))
 
 -- |
 --
@@ -311,7 +300,7 @@ statement f = start "{%" <|> (start "{%-" <* resetLeadingSpaces) where
 --
 conditionParser :: HaijiParser (AST 'Unloaded)
 conditionParser = withLeadingSpacesOf startCondition restCondition where
-  startCondition = statement $ string "if" >> skipMany1 space >> exprParser
+  startCondition = statement $ string "if" >> skipMany1 space >> expression
   restCondition cond = do
     ifPart <- haijiParser
     mElsePart <- mayElseParser
@@ -359,7 +348,7 @@ foreachParser :: HaijiParser (AST 'Unloaded)
 foreachParser = withLeadingSpacesOf startForeach restForeach where
   startForeach = statement $ Foreach
                  <$> (string "for" >> skipMany1 space >> identifier)
-                 <*> (skipMany1 space >> string "in" >> skipMany1 space >> exprParser)
+                 <*> (skipMany1 space >> string "in" >> skipMany1 space >> expression)
   restForeach foreach = do
     loopPart <- haijiParser
     mElsePart <- mayElseParser

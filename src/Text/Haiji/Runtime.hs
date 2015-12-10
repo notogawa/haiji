@@ -83,8 +83,8 @@ loopVariables len ix = JSON.object [ "first"     JSON..= (ix == 0)
                                    , "revindex0" JSON..= (len - ix - 1)
                                    ]
 
-eval :: Expr -> Reader JSON.Value JSON.Value
-eval (Var v) = deref v
+eval :: Expression -> Reader JSON.Value JSON.Value
+eval (Expression var _) = deref var
 
 deref :: Variable -> Reader JSON.Value JSON.Value
 deref (VariableBase v) = do

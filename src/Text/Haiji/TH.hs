@@ -98,8 +98,8 @@ loopVariables len ix =
   Ext (Value (len - ix - 1)  :: "revindex0" :-> Int ) $
   Empty
 
-eval :: Quasi q => Expr -> q Exp
-eval (Var v) = deref v
+eval :: Quasi q => Expression -> q Exp
+eval (Expression var _) = deref var
 
 deref :: Quasi q => Variable -> q Exp
 deref (VariableBase v) =
