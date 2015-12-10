@@ -47,10 +47,10 @@ key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . 
 haijiTemplate :: Quasi q => Environments -> Template -> q Exp
 haijiTemplate env tmpl = runQ [e| Tmpl $(haijiASTs env Nothing (templateChild tmpl) (templateBase tmpl)) |]
 
-haijiASTs :: Quasi q => Environments -> Maybe [AST 'Loaded] -> [AST 'Loaded] -> [AST 'Loaded] -> q Exp
+haijiASTs :: Quasi q => Environments -> Maybe [AST 'Fully] -> [AST 'Fully] -> [AST 'Fully] -> q Exp
 haijiASTs env parentBlock children asts = runQ [e| LT.concat <$> sequence $(listE $ map (haijiAST env parentBlock children) asts) |]
 
-haijiAST :: Quasi q => Environments -> Maybe [AST 'Loaded] -> [AST 'Loaded] -> AST 'Loaded -> q Exp
+haijiAST :: Quasi q => Environments -> Maybe [AST 'Fully] -> [AST 'Fully] -> AST 'Fully -> q Exp
 haijiAST _env _parentBlock _children (Literal l) =
   runQ [e| return $(litE $ stringL $ T.unpack l) |]
 haijiAST  env _parentBlock _children (Eval x) =
