@@ -85,7 +85,6 @@ loopVariables len ix = JSON.object [ "first"     JSON..= (ix == 0)
 
 eval :: Expr -> Reader JSON.Value JSON.Value
 eval (Var v) = deref v
-eval (Fun _) = undefined
 
 deref :: Variable -> Reader JSON.Value JSON.Value
 deref (VariableBase v) = do

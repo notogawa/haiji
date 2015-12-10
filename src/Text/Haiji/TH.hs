@@ -100,7 +100,6 @@ loopVariables len ix =
 
 eval :: Quasi q => Expr -> q Exp
 eval (Var v) = deref v
-eval (Fun _) = undefined
 
 deref :: Quasi q => Variable -> q Exp
 deref (VariableBase v) =

@@ -7,7 +7,6 @@
 module Text.Haiji.Parse
        ( Expr(..)
        , Variable(..)
-       , Function(..)
        , AST(..)
        , SubTemplate(..)
        , Template(..)
@@ -35,18 +34,11 @@ import Text.Haiji.Syntax.Variable
 -- >>> :set -XOverloadedStrings
 -- >>> let execHaijiParser p = snd <$> runHaijiParser p
 
-data Expr = Fun Function
-          | Var Variable
+data Expr = Var Variable
           deriving Eq
 
 instance Show Expr where
-  show (Fun f) = show f
   show (Var v) = show v
-
-data Function = Function Identifier [Expr] deriving Eq
-
-instance Show Function where
-  show (Function ident args) = shows ident "(" ++ intercalate ", " (map show args) ++ ")"
 
 type Scoped = Bool
 
@@ -265,8 +257,6 @@ literalParser = liftParser $ Literal . T.concat <$> many1 go where
 -- *** Exception: parse error
 -- >>> eval "{{ foo }} "
 -- {{ foo }}
--- >>> eval "{{ foo() }} "
--- {{ foo() }}
 --
 derefParser :: HaijiParser (AST 'Unloaded)
 derefParser = saveLeadingSpaces *> liftParser deref where
@@ -274,27 +264,8 @@ derefParser = saveLeadingSpaces *> liftParser deref where
 
 
 exprParser :: Parser Expr
-exprParser = choice [ Fun <$> functionParser
-                    , Var <$> variable
+exprParser = choice [ Var <$> variable
                     ]
-
--- |
---
--- >>> let eval = either (error "parse error") id . parseOnly functionParser
--- >>> eval "foo()"
--- foo()
--- >>> eval "super()"
--- *** Exception: parse error
--- >>> eval "foo(a)"
--- foo(a)
--- >>> eval "foo( x , test , a.b )"
--- foo(x, test, a.b)
---
-functionParser :: Parser Function
-functionParser = do
-  ident <- identifier <* skipSpace
-  when (ident == "super") $ fail "functionParser"
-  Function ident <$> (char '(' >> sepBy (skipSpace >> exprParser <* skipSpace) (char ',') <* char ')')
 
 -- |
 --
