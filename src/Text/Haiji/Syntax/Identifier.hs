@@ -3,7 +3,10 @@ module Text.Haiji.Syntax.Identifier
        , identifier
        ) where
 
+#if MIN_VERSION_base(4,8,0)
+#else
 import Control.Applicative
+#endif
 import Control.Monad
 import Data.Attoparsec.Text
 import Data.String
