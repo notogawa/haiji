@@ -1,8 +1,13 @@
+{-# LANGUAGE CPP #-}
 module Text.Haiji.Syntax.Expression
        ( Expression(..)
        , expression
        ) where
 
+#if MIN_VERSION_base(4,8,0)
+#else
+import Control.Applicative
+#endif
 import Data.Attoparsec.Text
 import Text.Haiji.Syntax.Variable
 
