@@ -2,7 +2,7 @@
 {-# LANGUAGE TypeSynonymInstances #-}
 {-# LANGUAGE FlexibleInstances #-}
 module Text.Haiji.Types
-       ( Tmpl(..)
+       ( Template(..)
        , render
        , Environment
        , autoEscape
@@ -45,9 +45,9 @@ instance Default Environment where
   def = Environment { autoEscape = True
                     }
 
-newtype Tmpl dict = Tmpl { unTmpl :: Reader dict LT.Text }
+newtype Template dict = Template { unTmpl :: Reader dict LT.Text }
 
-render :: Tmpl dict -> dict -> LT.Text
+render :: Template dict -> dict -> LT.Text
 render = runReader . unTmpl
 
 class ToLT a where toLT :: a -> LT.Text

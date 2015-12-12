@@ -1,6 +1,6 @@
 module Text.Haiji
     ( render
-    , Tmpl
+    , Template
     , Environment
     , autoEscape
     , Dict
