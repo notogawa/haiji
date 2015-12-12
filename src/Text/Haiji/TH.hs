@@ -25,17 +25,17 @@ import Text.Haiji.Syntax
 import Text.Haiji.Dictionary
 import Text.Haiji.Types
 
-haiji :: Environments -> QuasiQuoter
+haiji :: Environment -> QuasiQuoter
 haiji env = QuasiQuoter { quoteExp = haijiExp env
                         , quotePat = undefined
                         , quoteType = undefined
                         , quoteDec = undefined
                         }
 
-haijiFile :: Quasi q => Environments -> FilePath -> q Exp
+haijiFile :: Quasi q => Environment -> FilePath -> q Exp
 haijiFile env file = runQ (runIO $ parseFile file) >>= haijiTemplate env
 
-haijiExp :: Quasi q => Environments -> String -> q Exp
+haijiExp :: Quasi q => Environment -> String -> q Exp
 haijiExp env str = runQ (runIO $ parseString str) >>= haijiTemplate env
 
 key :: QuasiQuoter
@@ -45,13 +45,13 @@ key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . 
                   , quoteDec = undefined
                   }
 
-haijiTemplate :: Quasi q => Environments -> Template -> q Exp
+haijiTemplate :: Quasi q => Environment -> Template -> q Exp
 haijiTemplate env tmpl = runQ [e| Tmpl $(haijiASTs env Nothing (templateChild tmpl) (templateBase tmpl)) |]
 
-haijiASTs :: Quasi q => Environments -> Maybe [AST 'Fully] -> [AST 'Fully] -> [AST 'Fully] -> q Exp
+haijiASTs :: Quasi q => Environment -> Maybe [AST 'Fully] -> [AST 'Fully] -> [AST 'Fully] -> q Exp
 haijiASTs env parentBlock children asts = runQ [e| LT.concat <$> sequence $(listE $ map (haijiAST env parentBlock children) asts) |]
 
-haijiAST :: Quasi q => Environments -> Maybe [AST 'Fully] -> [AST 'Fully] -> AST 'Fully -> q Exp
+haijiAST :: Quasi q => Environment -> Maybe [AST 'Fully] -> [AST 'Fully] -> AST 'Fully -> q Exp
 haijiAST _env _parentBlock _children (Literal l) =
   runQ [e| return $(litE $ stringL $ T.unpack l) |]
 haijiAST  env _parentBlock _children (Eval x) =

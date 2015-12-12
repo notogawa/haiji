@@ -23,16 +23,16 @@ import Text.Haiji.Parse
 import Text.Haiji.Syntax
 import Text.Haiji.Types
 
-readTemplateFile :: Environments -> FilePath -> IO (Tmpl JSON.Value)
+readTemplateFile :: Environment -> FilePath -> IO (Tmpl JSON.Value)
 readTemplateFile env file = unsafeTmpl env <$> parseFile file
 
-unsafeTmpl :: Environments -> Template -> Tmpl JSON.Value
+unsafeTmpl :: Environment -> Template -> Tmpl JSON.Value
 unsafeTmpl env tmpl = Tmpl $ haijiASTs env Nothing (templateChild tmpl) (templateBase tmpl)
 
-haijiASTs :: Environments -> Maybe [AST 'Fully] -> [AST 'Fully] -> [AST 'Fully] -> Reader JSON.Value LT.Text
+haijiASTs :: Environment -> Maybe [AST 'Fully] -> [AST 'Fully] -> [AST 'Fully] -> Reader JSON.Value LT.Text
 haijiASTs env parentBlock children asts = LT.concat <$> sequence (map (haijiAST env parentBlock children) asts)
 
-haijiAST :: Environments -> Maybe [AST 'Fully] -> [AST 'Fully] -> AST 'Fully -> Reader JSON.Value LT.Text
+haijiAST :: Environment -> Maybe [AST 'Fully] -> [AST 'Fully] -> AST 'Fully -> Reader JSON.Value LT.Text
 haijiAST _env _parentBlock _children (Literal l) =
   return $ LT.fromStrict l
 haijiAST  env _parentBlock _children (Eval x) =

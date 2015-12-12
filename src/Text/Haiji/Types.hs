@@ -4,7 +4,7 @@
 module Text.Haiji.Types
        ( Tmpl(..)
        , render
-       , Environments
+       , Environment
        , autoEscape
        , Escape
        , escapeBy
@@ -36,19 +36,14 @@ htmlEscape = Escape (LT.concatMap replace) where
   replace '>'  = "&gt;"
   replace h    = LT.singleton h
 
-data Environments =
-  Environments
+data Environment =
+  Environment
   { autoEscape :: Bool
   } deriving (Eq, Show)
 
-defaultEnvironments :: Environments
-defaultEnvironments =
-  Environments
-  { autoEscape = True
-  }
-
-instance Default Environments where
-  def = defaultEnvironments
+instance Default Environment where
+  def = Environment { autoEscape = True
+                    }
 
 newtype Tmpl dict = Tmpl { unTmpl :: Reader dict LT.Text }
 

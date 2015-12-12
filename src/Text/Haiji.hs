@@ -1,7 +1,8 @@
 module Text.Haiji
     ( render
     , Tmpl
-    , Environments
+    , Environment
+    , autoEscape
     , Dict
     , haiji
     , haijiFile
