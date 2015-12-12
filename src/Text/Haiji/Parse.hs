@@ -3,7 +3,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
 module Text.Haiji.Parse
-       ( Template(..)
+       ( Jinja2(..)
        , parseString
        , parseFile
        ) where
@@ -22,21 +22,21 @@ import qualified Data.Text.Lazy.IO as LT
 
 import Text.Haiji.Syntax
 
-data Template =
-  Template
-  { templateBase :: [AST 'Fully]
-  , templateChild :: [AST 'Fully]
+data Jinja2 =
+  Jinja2
+  { jinja2Base :: [AST 'Fully]
+  , jinja2Child :: [AST 'Fully]
   } deriving (Eq, Show)
 
-toTemplate :: [AST 'Fully] -> Template
-toTemplate (Base base : asts) = tmpl { templateChild = templateChild tmpl ++ asts } where
-  tmpl = toTemplate base
-toTemplate asts = Template { templateBase = asts, templateChild = [] }
+toJinja2 :: [AST 'Fully] -> Jinja2
+toJinja2 (Base base : asts) = tmpl { jinja2Child = jinja2Child tmpl ++ asts } where
+  tmpl = toJinja2 base
+toJinja2 asts = Jinja2 { jinja2Base = asts, jinja2Child = [] }
 
-parseString :: String -> IO Template
-parseString = (toTemplate <$>) . either error readAllFile . parseOnly parser . T.pack
+parseString :: String -> IO Jinja2
+parseString = (toJinja2 <$>) . either error readAllFile . parseOnly parser . T.pack
 
-parseFileWith :: (LT.Text -> LT.Text) -> FilePath -> IO Template
+parseFileWith :: (LT.Text -> LT.Text) -> FilePath -> IO Jinja2
 parseFileWith f file = LT.readFile file >>= parseString . LT.unpack . f
 
 readAllFile :: [AST 'Partially] -> IO [AST 'Fully]
@@ -53,15 +53,15 @@ parseFileRecursively (Foreach k xs loopBody elseBody) =
   ((:[]) .) . Foreach k xs
   <$> readAllFile loopBody
   <*> runMaybeT (maybe mzero return elseBody >>= lift . readAllFile)
-parseFileRecursively (Include includeFile) = templateBase <$> parseIncludeFile includeFile
+parseFileRecursively (Include includeFile) = jinja2Base <$> parseIncludeFile includeFile
 parseFileRecursively (Raw content) = return [ Raw content ]
-parseFileRecursively (Extends extendsfile) = (:[]) . Base . templateBase <$> parseFile extendsfile
+parseFileRecursively (Extends extendsfile) = (:[]) . Base . jinja2Base <$> parseFile extendsfile
 parseFileRecursively (Block base name scoped body) =
   (:[]) . Block base name scoped <$> readAllFile body
 parseFileRecursively Super = return [ Super ]
 parseFileRecursively (Comment c) = return [ Comment c ]
 
-parseFile :: FilePath -> IO Template
+parseFile :: FilePath -> IO Jinja2
 parseFile = parseFileWith deleteLastOneLF where
   deleteLastOneLF :: LT.Text -> LT.Text
   deleteLastOneLF xs
@@ -70,7 +70,7 @@ parseFile = parseFileWith deleteLastOneLF where
     | not ("\n" `LT.isSuffixOf` xs) = xs `LT.append` "\n"
     | otherwise                     = xs
 
-parseIncludeFile :: FilePath -> IO Template
+parseIncludeFile :: FilePath -> IO Jinja2
 parseIncludeFile = parseFileWith deleteLastOneLF where
   deleteLastOneLF xs
     | LT.null xs         = xs

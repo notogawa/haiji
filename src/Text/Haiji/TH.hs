@@ -45,8 +45,8 @@ key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . 
                   , quoteDec = undefined
                   }
 
-haijiTemplate :: Quasi q => Environment -> Template -> q Exp
-haijiTemplate env tmpl = runQ [e| Tmpl $(haijiASTs env Nothing (templateChild tmpl) (templateBase tmpl)) |]
+haijiTemplate :: Quasi q => Environment -> Jinja2 -> q Exp
+haijiTemplate env tmpl = runQ [e| Tmpl $(haijiASTs env Nothing (jinja2Child tmpl) (jinja2Base tmpl)) |]
 
 haijiASTs :: Quasi q => Environment -> Maybe [AST 'Fully] -> [AST 'Fully] -> [AST 'Fully] -> q Exp
 haijiASTs env parentBlock children asts = runQ [e| LT.concat <$> sequence $(listE $ map (haijiAST env parentBlock children) asts) |]

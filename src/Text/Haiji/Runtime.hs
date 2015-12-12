@@ -26,8 +26,8 @@ import Text.Haiji.Types
 readTemplateFile :: Environment -> FilePath -> IO (Tmpl JSON.Value)
 readTemplateFile env file = unsafeTmpl env <$> parseFile file
 
-unsafeTmpl :: Environment -> Template -> Tmpl JSON.Value
-unsafeTmpl env tmpl = Tmpl $ haijiASTs env Nothing (templateChild tmpl) (templateBase tmpl)
+unsafeTmpl :: Environment -> Jinja2 -> Tmpl JSON.Value
+unsafeTmpl env tmpl = Tmpl $ haijiASTs env Nothing (jinja2Child tmpl) (jinja2Base tmpl)
 
 haijiASTs :: Environment -> Maybe [AST 'Fully] -> [AST 'Fully] -> [AST 'Fully] -> Reader JSON.Value LT.Text
 haijiASTs env parentBlock children asts = LT.concat <$> sequence (map (haijiAST env parentBlock children) asts)
