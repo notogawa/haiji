@@ -2,6 +2,14 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE CPP #-}
+-- |
+-- Module      : Text.Haiji.Runtime
+-- Copyright   : 2015 Noriyuki OHKAWA
+-- License     : BSD3
+--
+-- Maintainer  : n.ohkawa@gmail.com
+-- Stability   : experimental
+-- Portability : portable
 module Text.Haiji.Runtime
        ( readTemplateFile
        ) where
@@ -23,6 +31,7 @@ import Text.Haiji.Parse
 import Text.Haiji.Syntax
 import Text.Haiji.Types
 
+-- | Dynamically template loader (for template development use)
 readTemplateFile :: Environment -> FilePath -> IO (Template JSON.Value)
 readTemplateFile env file = unsafeTemplate env <$> parseFile file
 

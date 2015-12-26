@@ -36,17 +36,20 @@ htmlEscape = Escape (LT.concatMap replace) where
   replace '>'  = "&gt;"
   replace h    = LT.singleton h
 
+-- | A template environment
 data Environment =
   Environment
-  { autoEscape :: Bool
+  { autoEscape :: Bool -- ^ XML/HTML autoescaping
   } deriving (Eq, Show)
 
 instance Default Environment where
   def = Environment { autoEscape = True
                     }
 
+-- | Haiji template
 newtype Template dict = Template { unTmpl :: Reader dict LT.Text }
 
+-- | Render Haiji template with given dictionary
 render :: Template dict -> dict -> LT.Text
 render = runReader . unTmpl
 

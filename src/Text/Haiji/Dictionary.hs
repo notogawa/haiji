@@ -41,6 +41,7 @@ data (k :: Symbol) :-> (v :: *) where Value :: v -> k :-> v
 
 newtype VK v k = VK (k :-> v)
 
+-- | Empty dictionary
 empty :: Dict '[]
 empty = Empty
 
@@ -68,6 +69,7 @@ instance                     (IsDict d, IsDict (((k :-> v') ': d)), v' ~ v) => R
 #endif
   retrieve (Ext (Value v) _) _ = v
 
+-- | Type level Dictionary
 data Dict (kv :: [*]) where
   Empty :: Dict '[]
   Ext :: k :-> v -> Dict d -> Dict ((k :-> v) ': d)
@@ -95,6 +97,7 @@ type IsDict d = (d ~ Normalize (Sort d))
 
 type Merge xs ys = Normalize (Sort (xs :++ ys))
 
+-- | Merge 2 dictionaries
 merge :: (Mergeable a b) => Dict a -> Dict b -> Dict (Merge a b)
 merge a b = asDict $ append a b
 

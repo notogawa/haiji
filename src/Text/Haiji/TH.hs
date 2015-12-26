@@ -25,6 +25,7 @@ import Text.Haiji.Syntax
 import Text.Haiji.Dictionary
 import Text.Haiji.Types
 
+-- | QuasiQuoter to generate a Haiji template
 haiji :: Environment -> QuasiQuoter
 haiji env = QuasiQuoter { quoteExp = haijiExp env
                         , quotePat = undefined
@@ -32,12 +33,14 @@ haiji env = QuasiQuoter { quoteExp = haijiExp env
                         , quoteDec = undefined
                         }
 
+-- | Generate a Haiji template from external file
 haijiFile :: Quasi q => Environment -> FilePath -> q Exp
 haijiFile env file = runQ (runIO $ parseFile file) >>= haijiTemplate env
 
 haijiExp :: Quasi q => Environment -> String -> q Exp
 haijiExp env str = runQ (runIO $ parseString str) >>= haijiTemplate env
 
+-- | Generate a dictionary with single item
 key :: QuasiQuoter
 key = QuasiQuoter { quoteExp = \k -> [e| \v -> singleton v (Key :: Key $(litT . strTyLit $ k)) |]
                   , quotePat = undefined
