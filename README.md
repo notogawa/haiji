@@ -98,3 +98,14 @@ Raw block
 ~~~~
 {# a comment #}
 ~~~~
+
+## Testing
+
+The tests can be run with `stack`:
+
+~~~~
+$ stack test
+~~~~
+
+In order to run the tests, you need a `python2` binary on your `PATH`, and the
+`jinja2` python library installed.
