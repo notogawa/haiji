@@ -16,29 +16,30 @@ instance Show Variable where
 
 -- |
 --
--- >>> let eval = either (error "parse error") id . parseOnly variable
+-- >>> import Control.Arrow (left)
+-- >>> let eval = left (const "parse error") . parseOnly variable
 -- >>> eval "foo"
--- foo
+-- Right foo
 -- >>> eval "foo.bar"
--- foo.bar
+-- Right foo.bar
 -- >>> eval "foo.b}}ar"
--- foo.b
+-- Right foo.b
 -- >>> eval "foo.b ar"
--- foo.b
+-- Right foo.b
 -- >>> eval "foo.b }ar"
--- foo.b
+-- Right foo.b
 -- >>> eval " foo.bar"
--- *** Exception: parse error
+-- Left "parse error"
 -- >>> eval "foo.  bar"
--- foo.bar
+-- Right foo.bar
 -- >>> eval "foo  .bar"
--- foo.bar
+-- Right foo.bar
 -- >>> eval "foo.bar  "
--- foo.bar
+-- Right foo.bar
 -- >>> eval "foo.bar  "
--- foo.bar
+-- Right foo.bar
 -- >>> eval "foo.bar.baz"
--- foo.bar.baz
+-- Right foo.bar.baz
 --
 variable :: Parser Variable
 variable = identifier >>= go . VariableBase where

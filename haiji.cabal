@@ -33,7 +33,7 @@ library
                        Text.Haiji.Syntax.Identifier
                        Text.Haiji.Syntax.Expression
                        Text.Haiji.Syntax.Variable
-  build-depends:       base >=4.7 && <4.9
+  build-depends:       base >=4.7 && <5
                      , text
                      , attoparsec >=0.10
                      , template-haskell >=2.8

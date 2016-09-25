@@ -20,35 +20,36 @@ instance IsString Identifier where
 --
 -- https://docs.python.org/2.7/reference/lexical_analysis.html#identifiers
 --
--- >>> let eval = either (error "parse error") id . parseOnly identifier
+-- >>> import Control.Arrow (left)
+-- >>> let eval = left (const "parse error") . parseOnly identifier
 -- >>> eval "a"
--- a
+-- Right a
 -- >>> eval "ab"
--- ab
+-- Right ab
 -- >>> eval "A"
--- A
+-- Right A
 -- >>> eval "Ab"
--- Ab
+-- Right Ab
 -- >>> eval "_"
--- _
+-- Right _
 -- >>> eval "_a"
--- _a
+-- Right _a
 -- >>> eval "_1"
--- _1
+-- Right _1
 -- >>> eval "__"
--- __
+-- Right __
 -- >>> eval "_ "
--- _
+-- Right _
 -- >>> eval " _"
--- *** Exception: parse error
+-- Left "parse error"
 -- >>> eval "and"
--- *** Exception: parse error
+-- Left "parse error"
 -- >>> eval "1"
--- *** Exception: parse error
+-- Left "parse error"
 -- >>> eval "1b"
--- *** Exception: parse error
+-- Left "parse error"
 -- >>> eval "'x"
--- *** Exception: parse error
+-- Left "parse error"
 --
 identifier :: Parser Identifier
 identifier = do
