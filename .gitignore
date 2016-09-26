@@ -4,3 +4,5 @@
 cabal.sandbox.config
 *.tix
 /.stack-work
+
+/example.pyc
