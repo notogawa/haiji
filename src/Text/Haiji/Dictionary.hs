@@ -57,15 +57,15 @@ key = symbolVal . VK
 class Retrieve d k v where
   retrieve :: d -> Key k -> v
 #if MIN_VERSION_base(4,8,0)
-instance {-# OVERLAPPABLE #-} (IsDict d, IsDict (kv ': d), Retrieve (Dict d) k v) => Retrieve (Dict (kv ': d)) k v where
+instance {-# OVERLAPPABLE #-} Retrieve (Dict d) k v => Retrieve (Dict (kv ': d)) k v where
 #else
-instance                      (IsDict d, IsDict (kv ': d), Retrieve (Dict d) k v) => Retrieve (Dict (kv ': d)) k v where
+instance                      Retrieve (Dict d) k v => Retrieve (Dict (kv ': d)) k v where
 #endif
   retrieve (Ext _ d) k = retrieve d k
 #if MIN_VERSION_base(4,8,0)
-instance {-# OVERLAPPING #-} (IsDict d, IsDict (((k :-> v') ': d)), v' ~ v) => Retrieve (Dict ((k :-> v') ': d)) k v where
+instance {-# OVERLAPPING #-} v' ~ v => Retrieve (Dict ((k :-> v') ': d)) k v where
 #else
-instance                     (IsDict d, IsDict (((k :-> v') ': d)), v' ~ v) => Retrieve (Dict ((k :-> v') ': d)) k v where
+instance                     v' ~ v => Retrieve (Dict ((k :-> v') ': d)) k v where
 #endif
   retrieve (Ext (Value v) _) _ = v
 
@@ -88,88 +88,34 @@ instance (ToJSON v, KnownSymbol k) => ToJSON (k :-> v) where
 instance ToJSON (Dict s) => Show (Dict s) where
   show = LT.unpack . LT.decodeUtf8 . encode
 
-type AsDict s = Normalize (Sort s)
+class Mergeable xs ys where
+  merge :: Dict xs -> Dict ys -> Dict (Merge xs ys)
+instance Mergeable xs '[] where
+  merge xs Empty = xs
+instance Mergeable '[] (y ': ys) where
+  merge Empty ys = ys
+instance (Conder (Cmp x y == 'EQ), Conder (Cmp x y == 'LT), Mergeable xs ys, Mergeable (x ': xs) ys, Mergeable xs (y ': ys)) => Mergeable (x ': xs) (y ': ys) where
+  merge (Ext x xs) (Ext y ys) = cond (Proxy :: Proxy (Cmp x y == 'EQ))
+                                     (Ext y (merge xs ys))
+                                     (cond (Proxy :: Proxy (Cmp x y == 'LT))
+                                           (Ext x (merge xs (Ext y ys)))
+                                           (Ext y (merge (Ext x xs) ys)))
 
-asDict :: (Sortable d, Normalizable (Sort d)) => Dict d -> Dict (AsDict d)
-asDict = normalize . quicksort
-
-type IsDict d = (d ~ Normalize (Sort d))
-
-type Merge xs ys = Normalize (Sort (xs :++ ys))
-
--- | Merge 2 dictionaries
-merge :: (Mergeable a b) => Dict a -> Dict b -> Dict (Merge a b)
-merge a b = asDict $ append a b
-
-type Mergeable a b = (Sortable (a :++ b), Normalizable (Sort (a :++ b)))
+type family Merge a b :: [*] where
+  Merge xs '[] = xs
+  Merge '[] ys = ys
+  Merge (x ': xs) (y ': ys) = If (Cmp x y == 'EQ)
+                                  (y ': Merge xs ys) -- select last one
+                                  (If (Cmp x y == 'LT)
+                                      (x ': Merge xs (y ': ys))
+                                      (y ': Merge (x ': xs) ys))
 
 type family Append (xs :: [k]) (ys :: [k]) :: [k] where
   Append '[] ys = ys
   Append (x ': xs) ys = x ': Append xs ys
 
-type (xs :: [k]) :++ (ys :: [k]) = Append xs ys
-
-append :: Dict xs -> Dict ys -> Dict (xs :++ ys)
-append Empty ys = ys
-append (Ext x xs) ys = Ext x (append xs ys)
-
-type family Normalize d :: [*] where
-  Normalize '[]           = '[]
-  Normalize '[kv]         = '[kv]
-  Normalize ((k :-> v1) ': (k :-> v2) ': d) = Normalize ((k :-> v2) ': d) -- select last one
-  Normalize (kv1 ': kv2 ': d) = kv1 ': Normalize (kv2 ': d)
-
-class Normalizable d where
-  normalize :: Dict d -> Dict (Normalize d)
-instance Normalizable '[] where
-  normalize d = d
-instance Normalizable '[kv] where
-  normalize d = d
-#if MIN_VERSION_base(4,8,0)
-instance {-# OVERLAPPABLE #-} (Normalize (x ': y ': d) ~ (x ': Normalize (y ': d)), Normalizable (y ': d)) => Normalizable (x ': y ': d) where
-#else
-instance                      (Normalize (x ': y ': d) ~ (x ': Normalize (y ': d)), Normalizable (y ': d)) => Normalizable (x ': y ': d) where
-#endif
-  normalize (Ext x d) = Ext x (normalize d)
-#if MIN_VERSION_base(4,8,0)
-instance {-# OVERLAPPING #-} Normalizable ((k :-> v2) ': d) => Normalizable ((k :-> v1) ': (k :-> v2) ': d) where
-#else
-instance                     Normalizable ((k :-> v2) ': d) => Normalizable ((k :-> v1) ': (k :-> v2) ': d) where
-#endif
-  normalize (Ext _ d) = normalize d
-
-type family Sort (xs :: [k]) :: [k] where
-  Sort '[]       = '[]
-  Sort (x ': xs) = Sort (Filter 'FMin x xs) :++ '[x] :++ Sort (Filter 'FMax x xs)
-
-data Flag = FMin | FMax
-
 type family Cmp (a :: k) (b :: k) :: Ordering
 type instance Cmp (k1 :-> v1) (k2 :-> v2) = CmpSymbol k1 k2
-
-type family Filter (f :: Flag) (p :: k) (xs :: [k]) :: [k] where
-  Filter f    p '[]       = '[]
-  Filter 'FMin p (x ': xs) = If (Cmp x p == 'LT) (x ': Filter 'FMin p xs) (Filter 'FMin p xs)
-  Filter 'FMax p (x ': xs) = If (Cmp x p == 'GT || Cmp x p == 'EQ) (x ': Filter 'FMax p xs) (Filter 'FMax p xs)
-
-class Sortable xs where
-  quicksort :: Dict xs -> Dict (Sort xs)
-instance Sortable '[] where
-  quicksort Empty = Empty
-instance ( Sortable (Filter 'FMin p xs)
-         , Sortable (Filter 'FMax p xs)
-         , FilterV 'FMin p xs
-         , FilterV 'FMax p xs) => Sortable (p ': xs) where
-  quicksort (Ext p xs) = quicksort (less p xs) `append`
-                         Ext p Empty           `append`
-                         quicksort (more p xs) where
-    less = filterV (Proxy :: Proxy 'FMin)
-    more = filterV (Proxy :: Proxy 'FMax)
-
-class FilterV (f::Flag) p xs where
-  filterV :: Proxy f -> p -> Dict xs -> Dict (Filter f p xs)
-instance FilterV f p '[] where
-  filterV _ _ _ = Empty
 
 class Conder g where
   cond :: Proxy g -> Dict s -> Dict t -> Dict (If g s t)
@@ -177,16 +123,3 @@ instance Conder 'True where
   cond _ s _ = s
 instance Conder 'False where
   cond _ _ t = t
-
-instance (Conder (Cmp x p == 'LT), FilterV 'FMin p xs) => FilterV 'FMin p (x ': xs) where
-  filterV f@Proxy p (Ext x xs) =
-    cond
-    (Proxy :: Proxy (Cmp x p == 'LT))
-    (Ext x (filterV f p xs))
-    (filterV f p xs)
-instance (Conder (Cmp x p == 'GT || Cmp x p == 'EQ), FilterV 'FMax p xs) => FilterV 'FMax p (x ': xs) where
-  filterV f@Proxy p (Ext x xs) =
-    cond
-    (Proxy :: Proxy (Cmp x p == 'GT || Cmp x p == 'EQ))
-    (Ext x (filterV f p xs))
-    (filterV f p xs)
