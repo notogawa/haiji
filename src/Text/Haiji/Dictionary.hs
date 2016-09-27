@@ -6,9 +6,7 @@
 {-# LANGUAGE TypeFamilies #-}
 {-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE ConstraintKinds #-}
 #if MIN_VERSION_base(4,8,0)
 #else
 {-# LANGUAGE OverlappingInstances #-}
@@ -110,14 +108,10 @@ type family Merge a b :: [*] where
   Merge xs '[] = xs
   Merge '[] ys = ys
   Merge (x ': xs) (y ': ys) = If (Cmp x y == 'EQ)
-                                  (y ': Merge xs ys) -- select last one
-                                  (If (Cmp x y == 'LT)
-                                      (x ': Merge xs (y ': ys))
-                                      (y ': Merge (x ': xs) ys))
-
-type family Append (xs :: [k]) (ys :: [k]) :: [k] where
-  Append '[] ys = ys
-  Append (x ': xs) ys = x ': Append xs ys
+                                 (y ': Merge xs ys) -- select last one
+                                 (If (Cmp x y == 'LT)
+                                     (x ': Merge xs (y ': ys))
+                                     (y ': Merge (x ': xs) ys))
 
 type family Cmp (a :: k) (b :: k) :: Ordering
 type instance Cmp (k1 :-> v1) (k2 :-> v2) = CmpSymbol k1 k2
