@@ -3,6 +3,9 @@
 {-# LANGUAGE QuasiQuotes #-}
 {-# LANGUAGE DataKinds #-}
 {-# LANGUAGE CPP #-}
+#if MIN_VERSION_base(4,9,0)
+{-# LANGUAGE TypeApplications #-}
+#endif
 module Main ( main ) where
 
 #if MIN_VERSION_base(4,8,0)
@@ -49,14 +52,25 @@ case_example = do
   tmpl <- readTemplateFile def "example.tmpl"
   expected @=? render tmpl (toJSON dict)
     where
+#if MIN_VERSION_base(4,9,0)
+      dict = toDict @"a_variable" ("Hello,World!" :: T.Text) `merge`
+             toDict @"navigation" [ toDict @"caption" ("A" :: LT.Text) `merge`
+                                    toDict @"href" ("content/a.html" :: String)
+                                  , toDict @"caption" "B" `merge`
+                                    toDict @"href" "content/b.html"
+                                  ] `merge`
+             toDict @"foo" (1 :: Int) `merge`
+             toDict @"bar" ("" :: String)
+#else
       dict = [key|a_variable|] ("Hello,World!" :: T.Text) `merge`
              [key|navigation|] [ [key|caption|] ("A" :: LT.Text) `merge`
                                  [key|href|] ("content/a.html" :: String)
-                               , [key|caption|] ("B" :: LT.Text) `merge`
-                                 [key|href|] ("content/b.html" :: String)
+                               , [key|caption|] "B" `merge`
+                                 [key|href|] "content/b.html"
                                ] `merge`
              [key|foo|] (1 :: Int) `merge`
              [key|bar|] ("" :: String)
+#endif
 
 case_empty :: Assertion
 case_empty = do
