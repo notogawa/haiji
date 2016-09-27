@@ -49,6 +49,7 @@ empty = Empty
 singleton :: x -> Key k -> Dict '[ k :-> x ]
 singleton x _ = Ext (Value x) Empty
 
+-- | Create single element dictionary (with TypeApplications extention)
 toDict :: forall k x . x -> Dict '[ k :-> x ]
 toDict = flip singleton Key
 
