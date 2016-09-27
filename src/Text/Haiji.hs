@@ -54,6 +54,7 @@ module Text.Haiji
     , autoEscape
       -- * Dictionary
     , Dict
+    , toDict
     , empty
       -- ** Builder
     , key

@@ -16,6 +16,7 @@
 {-# LANGUAGE ScopedTypeVariables #-}
 module Text.Haiji.Dictionary
        ( Dict(..)
+       , toDict
        , (:->)(..)
        , empty
        , singleton
@@ -47,6 +48,9 @@ empty = Empty
 
 singleton :: x -> Key k -> Dict '[ k :-> x ]
 singleton x _ = Ext (Value x) Empty
+
+toDict :: forall k x . x -> Dict '[ k :-> x ]
+toDict = flip singleton Key
 
 value :: k :-> v -> v
 value (Value v) = v
