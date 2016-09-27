@@ -30,8 +30,6 @@ install:
   - stack --no-terminal --skip-ghc-check test --only-snapshot
   # install jinja2
   - pip install --user Jinja2
-  # install hpc-coveralls
-  - stack --no-terminal --skip-ghc-check install hpc-coveralls
 
 script:
   - stack --no-terminal --skip-ghc-check test --coverage
@@ -48,6 +46,8 @@ script:
   #  fi)
 
 after_script:
-  - hpc-coveralls --exclude-dir=test tests
+  # install stack-hpc-coveralls
+  - stack --no-terminal --skip-ghc-check install stack-hpc-coveralls
+  - shc haiji tests
 
 # EOF
