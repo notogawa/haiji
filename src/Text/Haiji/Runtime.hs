@@ -39,7 +39,7 @@ unsafeTemplate :: Environment -> Jinja2 -> Template JSON.Value
 unsafeTemplate env tmpl = Template $ haijiASTs env Nothing (jinja2Child tmpl) (jinja2Base tmpl)
 
 haijiASTs :: Environment -> Maybe [AST 'Fully] -> [AST 'Fully] -> [AST 'Fully] -> Reader JSON.Value LT.Text
-haijiASTs env parentBlock children asts = LT.concat <$> sequence (map (haijiAST env parentBlock children) asts)
+haijiASTs env parentBlock children asts = LT.concat <$> mapM (haijiAST env parentBlock children) asts
 
 haijiAST :: Environment -> Maybe [AST 'Fully] -> [AST 'Fully] -> AST 'Fully -> Reader JSON.Value LT.Text
 haijiAST _env _parentBlock _children (Literal l) =
@@ -50,7 +50,7 @@ haijiAST  env _parentBlock _children (Eval x) =
      case obj of
        JSON.String s -> return $ (`escapeBy` esc) $ toLT s
        JSON.Number n -> case floatingOrInteger n of
-         Left  r -> const undefined (r :: Double)
+         Left  r -> undefined
          Right i -> return $ (`escapeBy` esc) $ toLT (i :: Integer)
        _ -> undefined
 haijiAST  env  parentBlock  children (Condition p ts fs) =
@@ -68,8 +68,7 @@ haijiAST  env  parentBlock  children (Foreach k xs loopBody elseBody) =
                      (let JSON.Object obj = p
                       in  JSON.Object
                           $ HM.insert "loop" (loopVariables len ix)
-                          $ HM.insert (T.pack $ show k) x
-                          $ obj)
+                          $ HM.insert (T.pack $ show k) x obj)
                    | (ix, x) <- zip [0..] (V.toList dicts)
                    ]
      else maybe (return "") (haijiASTs env parentBlock children) elseBody

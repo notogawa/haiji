@@ -92,15 +92,13 @@ haijiAST  env  parentBlock  children Super = maybe (error "invalid super()") (ha
 haijiAST _env _parentBlock _children (Comment _) = runQ [e| return "" |]
 
 loopVariables :: Int -> Int -> Dict '["first" :-> Bool, "index" :-> Int, "index0" :-> Int, "last" :-> Bool, "length" :-> Int, "revindex" :-> Int, "revindex0" :-> Int]
-loopVariables len ix =
-  Ext (Value (ix == 0)       :: "first"     :-> Bool) $
-  Ext (Value (ix + 1)        :: "index"     :-> Int ) $
-  Ext (Value ix              :: "index0"    :-> Int ) $
-  Ext (Value (ix == len - 1) :: "last"      :-> Bool) $
-  Ext (Value len             :: "length"    :-> Int ) $
-  Ext (Value (len - ix)      :: "revindex"  :-> Int ) $
-  Ext (Value (len - ix - 1)  :: "revindex0" :-> Int ) $
-  Empty
+loopVariables len ix = Ext (Value (ix == 0)       :: "first"     :-> Bool)
+                     $ Ext (Value (ix + 1)        :: "index"     :-> Int )
+                     $ Ext (Value ix              :: "index0"    :-> Int )
+                     $ Ext (Value (ix == len - 1) :: "last"      :-> Bool)
+                     $ Ext (Value len             :: "length"    :-> Int )
+                     $ Ext (Value (len - ix)      :: "revindex"  :-> Int )
+                     $ Ext (Value (len - ix - 1)  :: "revindex0" :-> Int ) Empty
 
 eval :: Quasi q => Expression -> q Exp
 eval (Expression var _) = deref var

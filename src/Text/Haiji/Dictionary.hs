@@ -64,7 +64,7 @@ instance {-# OVERLAPPABLE #-} Retrieve (Dict d) k v => Retrieve (Dict (kv ': d))
 #else
 instance                      Retrieve (Dict d) k v => Retrieve (Dict (kv ': d)) k v where
 #endif
-  retrieve (Ext _ d) k = retrieve d k
+  retrieve (Ext _ d) = retrieve d
 #if MIN_VERSION_base(4,8,0)
 instance {-# OVERLAPPING #-} v' ~ v => Retrieve (Dict ((k :-> v') ': d)) k v where
 #else
