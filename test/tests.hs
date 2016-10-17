@@ -130,24 +130,14 @@ case_HTML_escape = do
       dict = [key|foo|] ([' '..'\126'] :: String)
 
 case_condition :: Assertion
-case_condition = do
-  testCondition True  True  True
-  testCondition True  True  False
-  testCondition True  False True
-  testCondition True  False False
-  testCondition False True  True
-  testCondition False True  False
-  testCondition False False True
-  testCondition False False False where
-    testCondition foo bar baz = do
-      expected <- jinja2 "test/condition.tmpl" dict
-      expected @=? render $(haijiFile def "test/condition.tmpl") dict
-      tmpl <- readTemplateFile def "test/condition.tmpl"
-      expected @=? render tmpl (toJSON dict)
-        where
-          dict = [key|foo|] foo `merge`
-                 [key|bar|] bar `merge`
-                 [key|baz|] baz
+case_condition = forM_ (replicateM 3 [True, False]) $ \[foo, bar, baz] -> do
+  let dict = [key|foo|] foo `merge`
+             [key|bar|] bar `merge`
+             [key|baz|] baz
+  expected <- jinja2 "test/condition.tmpl" dict
+  expected @=? render $(haijiFile def "test/condition.tmpl") dict
+  tmpl <- readTemplateFile def "test/condition.tmpl"
+  expected @=? render tmpl (toJSON dict)
 
 case_foreach :: Assertion
 case_foreach = do
