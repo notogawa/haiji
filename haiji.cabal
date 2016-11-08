@@ -45,6 +45,7 @@ library
                      , unordered-containers
                      , scientific
                      , data-default
+                     , singletons
   hs-source-dirs:      src
   ghc-options:         -Wall
   default-language:    Haskell2010

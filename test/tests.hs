@@ -227,3 +227,28 @@ case_extends = do
       dict = [key|foo|] ("foo" :: T.Text) `merge`
              [key|bar|] ("bar" :: T.Text) `merge`
              [key|baz|] ("baz" :: T.Text)
+
+case_many_variables :: Assertion
+case_many_variables = do
+  expected <- jinja2 "test/many_variables.tmpl" dict --
+  expected @=? render $(haijiFile def "test/many_variables.tmpl") dict
+  tmpl <- readTemplateFile def "test/many_variables.tmpl"
+  expected @=? render tmpl (toJSON dict)
+    where
+      dict = [key|a|] ("b" :: T.Text) `merge`
+             [key|b|] ("b" :: LT.Text) `merge`
+             [key|c|] ("b" :: LT.Text) `merge`
+             [key|d|] ("b" :: LT.Text) `merge`
+             [key|e|] ("b" :: LT.Text) `merge`
+             [key|f|] ("b" :: LT.Text) `merge`
+             [key|g|] ("b" :: LT.Text) `merge`
+             [key|h|] ("b" :: LT.Text) `merge`
+             [key|i|] ("b" :: LT.Text) `merge`
+             [key|j|] ("b" :: LT.Text) `merge`
+             [key|k|] ("b" :: LT.Text) `merge`
+             [key|l|] ("b" :: LT.Text) `merge`
+             [key|m|] ("b" :: LT.Text) `merge`
+             [key|n|] ("b" :: LT.Text) `merge`
+             [key|o|] ("b" :: LT.Text) `merge`
+             [key|p|] ("b" :: LT.Text) `merge`
+             [key|q|] ("b" :: LT.Text)
