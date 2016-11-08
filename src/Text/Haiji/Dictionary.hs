@@ -1,17 +1,9 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE DataKinds #-}
-{-# LANGUAGE PolyKinds #-}
 {-# LANGUAGE TypeOperators #-}
 {-# LANGUAGE TypeFamilies #-}
-{-# LANGUAGE MultiParamTypeClasses #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
-#if MIN_VERSION_base(4,8,0)
-#else
-{-# LANGUAGE OverlappingInstances #-}
-#endif
-{-# LANGUAGE ScopedTypeVariables #-}
 module Text.Haiji.Dictionary
        ( Dict(..)
        , toDict
@@ -25,52 +17,48 @@ module Text.Haiji.Dictionary
 
 import Data.Aeson
 import Data.Monoid
-import Data.Proxy
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
 import Data.Type.Bool
-import Data.Type.Equality
 import GHC.TypeLits
+import Data.Singletons
+import Data.Singletons.Prelude
 
-data Key (k :: Symbol) where Key :: Key k
+data Key (k :: Symbol) where
+  Key :: KnownSymbol k => Key k
 
 infixl 2 :->
-data (k :: Symbol) :-> (v :: *) where Value :: v -> k :-> v
-
-newtype VK v k = VK (k :-> v)
+data (k :: Symbol) :-> (v :: *) where KV :: Key k -> v -> k :-> v
 
 -- | Empty dictionary
 empty :: Dict '[]
 empty = Empty
 
 singleton :: x -> Key k -> Dict '[ k :-> x ]
-singleton x _ = Ext (Value x) Empty
+singleton x k = Ext (KV k x) Empty
 
 -- | Create single element dictionary (with TypeApplications extention)
-toDict :: forall k x . x -> Dict '[ k :-> x ]
+toDict :: KnownSymbol k => x -> Dict '[ k :-> x ]
 toDict = flip singleton Key
 
 value :: k :-> v -> v
-value (Value v) = v
+value (KV _ v) = v
 
-key :: KnownSymbol k => k :-> v -> String
-key = symbolVal . VK
+key :: k :-> v -> Key k
+key (KV k _)= k
 
-class Retrieve d k v where
-  retrieve :: d -> Key k -> v
-#if MIN_VERSION_base(4,8,0)
-instance {-# OVERLAPPABLE #-} Retrieve (Dict d) k v => Retrieve (Dict (kv ': d)) k v where
-#else
-instance                      Retrieve (Dict d) k v => Retrieve (Dict (kv ': d)) k v where
-#endif
-  retrieve (Ext _ d) = retrieve d
-#if MIN_VERSION_base(4,8,0)
-instance {-# OVERLAPPING #-} v' ~ v => Retrieve (Dict ((k :-> v') ': d)) k v where
-#else
-instance                     v' ~ v => Retrieve (Dict ((k :-> v') ': d)) k v where
-#endif
-  retrieve (Ext (Value v) _) _ = v
+keyVal :: Key k -> String
+keyVal k = case k of Key -> symbolVal k
+
+retrieve :: Dict xs -> Key k -> Retrieve xs k
+retrieve (Ext (KV k v) dicts) k' = case (k, k') of
+  (Key, Key) -> case singByProxy k %:== singByProxy k' of
+    SFalse -> retrieve dicts k'
+    STrue  -> v
+
+type family Retrieve (a :: [*]) (b :: Symbol) where
+  Retrieve ((kx :-> vx) ': xs) key = If (kx :== key) vx (Retrieve xs key)
 
 -- | Type level Dictionary
 data Dict (kv :: [*]) where
@@ -85,40 +73,23 @@ instance (ToJSON (Dict s), ToJSON kv) => ToJSON (Dict (kv ': s)) where
     Object a = toJSON x
     Object b = toJSON xs
 
-instance (ToJSON v, KnownSymbol k) => ToJSON (k :-> v) where
-  toJSON x = object [ T.pack (key x) .= value x ]
+instance ToJSON v => ToJSON (k :-> v) where
+  toJSON x = object [ T.pack (keyVal $ key x) .= value x ]
 
 instance ToJSON (Dict s) => Show (Dict s) where
   show = LT.unpack . LT.decodeUtf8 . encode
 
-class Mergeable xs ys where
-  merge :: Dict xs -> Dict ys -> Dict (Merge xs ys)
-instance Mergeable xs '[] where
-  merge xs Empty = xs
-instance Mergeable '[] (y ': ys) where
-  merge Empty ys = ys
-instance (Conder (Cmp x y == 'EQ), Conder (Cmp x y == 'LT), Mergeable xs ys, Mergeable (x ': xs) ys, Mergeable xs (y ': ys)) => Mergeable (x ': xs) (y ': ys) where
-  merge (Ext x xs) (Ext y ys) = cond (Proxy :: Proxy (Cmp x y == 'EQ))
-                                     (Ext y (merge xs ys))
-                                     (cond (Proxy :: Proxy (Cmp x y == 'LT))
-                                           (Ext x (merge xs (Ext y ys)))
-                                           (Ext y (merge (Ext x xs) ys)))
+merge :: Dict xs -> Dict ys -> Dict (Merge xs ys)
+merge xs Empty = xs
+merge Empty ys = ys
+merge (Ext x xs) (Ext y ys) = case (key x, key y) of
+  (Key, Key) -> case singByProxy (key x) %:== singByProxy (key y) of
+    STrue  -> Ext y (merge xs ys)
+    SFalse -> case singByProxy (key x) %:< singByProxy (key y) of
+      STrue -> Ext x (merge xs (Ext y ys))
+      SFalse -> Ext y (merge (Ext x xs) ys)
 
 type family Merge a b :: [*] where
   Merge xs '[] = xs
   Merge '[] ys = ys
-  Merge (x ': xs) (y ': ys) = If (Cmp x y == 'EQ)
-                                 (y ': Merge xs ys) -- select last one
-                                 (If (Cmp x y == 'LT)
-                                     (x ': Merge xs (y ': ys))
-                                     (y ': Merge (x ': xs) ys))
-
-type family Cmp (a :: k) (b :: k) :: Ordering
-type instance Cmp (k1 :-> v1) (k2 :-> v2) = CmpSymbol k1 k2
-
-class Conder g where
-  cond :: Proxy g -> Dict s -> Dict t -> Dict (If g s t)
-instance Conder 'True where
-  cond _ s _ = s
-instance Conder 'False where
-  cond _ _ t = t
+  Merge ((kx :-> vx) ': xs) ((ky :-> vy) ': ys) = If (kx :== ky) ((ky :-> vy) ': Merge xs ys) (If (kx :< ky) ((kx :-> vx) ': Merge xs ((ky :-> vy) ': ys)) ((ky :-> vy) ': Merge ((kx :-> vx) ': xs) ys))
