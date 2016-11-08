@@ -4,8 +4,6 @@ cache:
     - "$HOME/.stack/"
 matrix:
   include:
-    - env: RESOLVER=lts-2
-    - env: RESOLVER=lts-3
     - env: RESOLVER=lts-4
     - env: RESOLVER=lts-5
     - env: RESOLVER=lts-6
