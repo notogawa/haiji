@@ -14,6 +14,8 @@ module Text.Haiji.TH
 import Control.Applicative
 #endif
 import Control.Monad.Trans.Reader
+import Data.Dynamic
+import qualified Data.HashMap.Strict as M
 import Data.Maybe
 import Language.Haskell.TH
 import Language.Haskell.TH.Quote
@@ -92,13 +94,14 @@ haijiAST  env  parentBlock  children Super = maybe (error "invalid super()") (ha
 haijiAST _env _parentBlock _children (Comment _) = runQ [e| return "" |]
 
 loopVariables :: Int -> Int -> Dict '["first" :-> Bool, "index" :-> Int, "index0" :-> Int, "last" :-> Bool, "length" :-> Int, "revindex" :-> Int, "revindex0" :-> Int]
-loopVariables len ix = Ext (KV Key (ix == 0)       :: "first"     :-> Bool)
-                     $ Ext (KV Key (ix + 1)        :: "index"     :-> Int )
-                     $ Ext (KV Key ix              :: "index0"    :-> Int )
-                     $ Ext (KV Key (ix == len - 1) :: "last"      :-> Bool)
-                     $ Ext (KV Key len             :: "length"    :-> Int )
-                     $ Ext (KV Key (len - ix)      :: "revindex"  :-> Int )
-                     $ Ext (KV Key (len - ix - 1)  :: "revindex0" :-> Int ) Empty
+loopVariables len ix = Dict $ M.fromList [ ("first", toDyn (ix == 0))
+                                         , ("index", toDyn (ix + 1))
+                                         , ("index0", toDyn ix)
+                                         , ("last", toDyn (ix == len - 1))
+                                         , ("length", toDyn len)
+                                         , ("revindex", toDyn (len - ix))
+                                         , ("revindex0", toDyn (len - ix - 1))
+                                         ]
 
 eval :: Quasi q => Expression -> q Exp
 eval (Expression var _) = deref var
