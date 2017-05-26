@@ -6,7 +6,6 @@ module Text.Haiji.Parse
        ( Jinja2(..)
        , parseString
        , parseFile
-       , runQWF
        ) where
 
 #if MIN_VERSION_base(4,8,0)
@@ -39,15 +38,12 @@ parseString :: QuasiWithFile q => String -> q Jinja2
 parseString = (toJinja2 <$>) . either error readAllFile . parseOnly parser . T.pack
 
 class Quasi q => QuasiWithFile q where
-  runQWF :: q a -> Q a
   withFile :: FilePath -> q LT.Text
 
 instance QuasiWithFile IO where
-  runQWF = runIO
   withFile file = LT.readFile file
 
 instance QuasiWithFile Q where
-  runQWF = id
   withFile file = runQ (addDependentFile file >> runIO (withFile file))
 
 parseFileWith :: QuasiWithFile q => (LT.Text -> LT.Text) -> FilePath -> q Jinja2
