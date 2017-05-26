@@ -6,6 +6,7 @@ module Text.Haiji.Parse
        ( Jinja2(..)
        , parseString
        , parseFile
+       , runQWF
        ) where
 
 #if MIN_VERSION_base(4,8,0)
@@ -19,6 +20,7 @@ import Data.Attoparsec.Text
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.IO as LT
+import Language.Haskell.TH.Syntax hiding (lift)
 
 import Text.Haiji.Syntax
 
@@ -33,16 +35,28 @@ toJinja2 (Base base : asts) = tmpl { jinja2Child = jinja2Child tmpl ++ asts } wh
   tmpl = toJinja2 base
 toJinja2 asts = Jinja2 { jinja2Base = asts, jinja2Child = [] }
 
-parseString :: String -> IO Jinja2
+parseString :: QuasiWithFile q => String -> q Jinja2
 parseString = (toJinja2 <$>) . either error readAllFile . parseOnly parser . T.pack
 
-parseFileWith :: (LT.Text -> LT.Text) -> FilePath -> IO Jinja2
-parseFileWith f file = LT.readFile file >>= parseString . LT.unpack . f
+class Quasi q => QuasiWithFile q where
+  runQWF :: q a -> Q a
+  withFile :: FilePath -> q LT.Text
 
-readAllFile :: [AST 'Partially] -> IO [AST 'Fully]
+instance QuasiWithFile IO where
+  runQWF = runIO
+  withFile file = LT.readFile file
+
+instance QuasiWithFile Q where
+  runQWF = id
+  withFile file = runQ (addDependentFile file >> runIO (withFile file))
+
+parseFileWith :: QuasiWithFile q => (LT.Text -> LT.Text) -> FilePath -> q Jinja2
+parseFileWith f file = withFile file >>= parseString . LT.unpack . f
+
+readAllFile :: QuasiWithFile q => [AST 'Partially] -> q [AST 'Fully]
 readAllFile asts = concat <$> mapM parseFileRecursively asts
 
-parseFileRecursively :: AST 'Partially -> IO [AST 'Fully]
+parseFileRecursively :: QuasiWithFile q => AST 'Partially -> q [AST 'Fully]
 parseFileRecursively (Literal l) = return [ Literal l ]
 parseFileRecursively (Eval v) = return [ Eval v ]
 parseFileRecursively (Condition p ts fs) =
@@ -61,7 +75,7 @@ parseFileRecursively (Block base name scoped body) =
 parseFileRecursively Super = return [ Super ]
 parseFileRecursively (Comment c) = return [ Comment c ]
 
-parseFile :: FilePath -> IO Jinja2
+parseFile :: QuasiWithFile q => FilePath -> q Jinja2
 parseFile = parseFileWith deleteLastOneLF where
   deleteLastOneLF :: LT.Text -> LT.Text
   deleteLastOneLF xs
@@ -70,7 +84,7 @@ parseFile = parseFileWith deleteLastOneLF where
     | not ("\n" `LT.isSuffixOf` xs) = xs `LT.append` "\n"
     | otherwise                     = xs
 
-parseIncludeFile :: FilePath -> IO Jinja2
+parseIncludeFile :: QuasiWithFile q => FilePath -> q Jinja2
 parseIncludeFile = parseFileWith deleteLastOneLF where
   deleteLastOneLF xs
     | LT.null xs         = xs

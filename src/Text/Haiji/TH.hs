@@ -37,7 +37,7 @@ haiji env = QuasiQuoter { quoteExp = haijiExp env
 
 -- | Generate a Haiji template from external file
 haijiFile :: Quasi q => Environment -> FilePath -> q Exp
-haijiFile env file = runQ (runIO $ parseFile file) >>= haijiTemplate env
+haijiFile env file = runQ (parseFile file) >>= haijiTemplate env
 
 haijiExp :: Quasi q => Environment -> String -> q Exp
 haijiExp env str = runQ (runIO $ parseString str) >>= haijiTemplate env
