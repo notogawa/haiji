@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE CPP #-}
 module Text.Haiji.Dictionary
        ( Dict(..)
        , toDict
@@ -21,7 +22,10 @@ import Data.Aeson
 import Data.Dynamic
 import qualified Data.HashMap.Strict as M
 import Data.Maybe
-import Data.Monoid ()
+#if MIN_VERSION_base(4,11,0)
+#else
+import Data.Monoid
+#endif
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT

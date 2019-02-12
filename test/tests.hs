@@ -17,7 +17,10 @@ import Text.Haiji
 import Text.Haiji.Runtime
 import Data.Aeson
 import Data.Default
-import Data.Monoid ()
+#if MIN_VERSION_base(4,11,0)
+#else
+import Data.Monoid
+#endif
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.IO as LT
