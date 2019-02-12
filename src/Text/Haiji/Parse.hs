@@ -75,9 +75,7 @@ parseFile :: QuasiWithFile q => FilePath -> q Jinja2
 parseFile = parseFileWith deleteLastOneLF where
   deleteLastOneLF :: LT.Text -> LT.Text
   deleteLastOneLF xs
-    | "%}\n" `LT.isSuffixOf` xs     = LT.init xs
-    | "\n\n" `LT.isSuffixOf` xs     = LT.init xs
-    | not ("\n" `LT.isSuffixOf` xs) = xs `LT.append` "\n"
+    | "\n" `LT.isSuffixOf` xs       = LT.init xs
     | otherwise                     = xs
 
 parseIncludeFile :: QuasiWithFile q => FilePath -> q Jinja2

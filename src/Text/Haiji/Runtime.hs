@@ -49,30 +49,33 @@ haijiAST  env _parentBlock _children (Eval x) =
      obj <- eval x
      case obj of
        JSON.String s -> return $ (`escapeBy` esc) $ toLT s
-       JSON.Number n -> case floatingOrInteger n of
-         Left  r -> undefined
+       JSON.Number n -> case floatingOrInteger (n :: Scientific) of
+         Left  r -> let _ = (r :: Double) in error "invalid value type"
          Right i -> return $ (`escapeBy` esc) $ toLT (i :: Integer)
        _ -> undefined
 haijiAST  env  parentBlock  children (Condition p ts fs) =
-  do JSON.Bool cond <- eval p
-     if cond
-     then haijiASTs env parentBlock children ts
-     else maybe (return "") (haijiASTs env parentBlock children) fs
+  do b <- eval p
+     case b of
+       JSON.Bool True  -> haijiASTs env parentBlock children ts
+       JSON.Bool False -> maybe (return "") (haijiASTs env parentBlock children) fs
+       _               -> error "invalid condition type"
 haijiAST  env  parentBlock  children (Foreach k xs loopBody elseBody) =
-  do JSON.Array dicts <- eval xs
-     p <- ask
-     let len = V.length dicts
-     if 0 < len
-     then return $ LT.concat
-                   [ runReader (haijiASTs env parentBlock children loopBody)
-                     (let JSON.Object obj = p
-                      in  JSON.Object
-                          $ HM.insert "loop" (loopVariables len ix)
-                          $ HM.insert (T.pack $ show k) x obj)
-                   | (ix, x) <- zip [0..] (V.toList dicts)
-                   ]
-     else maybe (return "") (haijiASTs env parentBlock children) elseBody
-
+  do arr <- eval xs
+     case arr of
+       JSON.Array dicts -> do
+         p <- ask
+         let len = V.length dicts
+         if 0 < len
+         then return $ LT.concat
+              [ runReader (haijiASTs env parentBlock children loopBody)
+                          (let JSON.Object obj = p
+                           in  JSON.Object
+                               $ HM.insert "loop" (loopVariables len ix)
+                               $ HM.insert (T.pack $ show k) x obj)
+              | (ix, x) <- zip [0..] (V.toList dicts)
+              ]
+         else maybe (return "") (haijiASTs env parentBlock children) elseBody
+       _                -> error "invalid array type"
 haijiAST _env _parentBlock _children (Raw raw) = return $ LT.pack raw
 haijiAST _env _parentBlock _children (Base _asts) = undefined
 haijiAST  env  parentBlock  children (Block _base name _scoped body) =
