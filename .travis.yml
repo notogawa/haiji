@@ -21,6 +21,7 @@ addons:
   apt:
     packages:
       - libgmp-dev
+      - python3-pip
 before_install:
   # stack
   - mkdir -p ~/.local/bin
@@ -33,7 +34,7 @@ install:
   - stack --no-terminal --skip-ghc-check setup
   - stack --no-terminal --skip-ghc-check test --only-snapshot
   # install jinja2
-  - pip install --user Jinja2
+  - pip3 install --user Jinja2
   # install stack-hpc-coveralls
   - stack --no-terminal --skip-ghc-check install stack-hpc-coveralls || true
 
