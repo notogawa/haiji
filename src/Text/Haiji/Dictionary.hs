@@ -31,13 +31,19 @@ import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
 import Data.Type.Bool
 import Data.Type.Equality
+#if MIN_VERSION_base(4,9,0)
+import Data.Kind
+#define STAR Type
+#else
+#define STAR *
+#endif
 import GHC.TypeLits
 
 data Key (k :: Symbol) where
   Key :: KnownSymbol k => Key k
 
 infixl 2 :->
-data (k :: Symbol) :-> (v :: *)
+data (k :: Symbol) :-> (v :: STAR)
 
 -- | Empty dictionary
 empty :: Dict '[]
@@ -56,11 +62,11 @@ keyVal k = case k of Key -> symbolVal k
 retrieve :: Typeable (Retrieve xs k) => Dict xs -> Key k -> Retrieve xs k
 retrieve (Dict d) k = fromJust $ fromDynamic $ d M.! keyVal k
 
-type family Retrieve (a :: [*]) (b :: Symbol) where
+type family Retrieve (a :: [STAR]) (b :: Symbol) where
   Retrieve ((kx :-> vx) ': xs) key = If (CmpSymbol kx key == 'EQ) vx (Retrieve xs key)
 
 -- | Type level Dictionary
-data Dict (kv :: [*]) = Dict (M.HashMap String Dynamic)
+data Dict (kv :: [STAR]) = Dict (M.HashMap String Dynamic)
 
 instance ToJSON (Dict '[]) where
   toJSON _ = object []
@@ -80,7 +86,7 @@ instance ToJSON (Dict s) => Show (Dict s) where
 merge :: Dict xs -> Dict ys -> Dict (Merge xs ys)
 merge (Dict x) (Dict y) = Dict (y `M.union` x)
 
-type family Merge a b :: [*] where
+type family Merge a b :: [STAR] where
   Merge xs '[] = xs
   Merge '[] ys = ys
   Merge (x ': xs) (y ': ys) = If (Cmp x y == 'EQ) (y ': Merge xs ys) (If (Cmp x y == 'LT) (x ': Merge xs (y ': ys)) (y ': Merge (x ': xs) ys))

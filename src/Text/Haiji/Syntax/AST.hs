@@ -4,6 +4,7 @@
 {-# LANGUAGE GADTs #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 module Text.Haiji.Syntax.AST
        ( AST(..)
        , Loaded(..)
@@ -17,6 +18,12 @@ import Data.Attoparsec.Text
 import Data.Char
 import Data.Maybe
 import qualified Data.Text as T
+#if MIN_VERSION_base(4,9,0)
+import Data.Kind
+#define STAR Type
+#else
+#define STAR *
+#endif
 
 import Text.Haiji.Syntax.Identifier
 import Text.Haiji.Syntax.Expression
@@ -33,7 +40,7 @@ type Base = Bool
 data Loaded = Fully
             | Partially
 
-data AST :: Loaded -> * where
+data AST :: Loaded -> STAR where
   Literal :: T.Text -> AST a
   Eval :: Expression -> AST a
   Condition :: Expression -> [AST a] -> Maybe [AST a] -> AST a
