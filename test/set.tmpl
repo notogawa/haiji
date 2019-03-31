@@ -1,0 +1,11 @@
+{%- for y in ys %}
+setにもスコープが存在する．変数を辞書に追加した後，
+{%- set prev_loop = loop %}
+ここから
+{%- for x in xs %}
+{{ prev_loop.index0 }} {{ loop.index0 }}
+{%- endfor %}
+ここまでをincludeと同じような扱いにする必要がある
+{{ prev_loop.index0 }}
+{%- endfor %}
+ここにsetした変数を書いたらエラー

@@ -219,6 +219,16 @@ case_comment = do
     where
       dict = [key|seq|] ([0,2..10] :: [Integer])
 
+case_set :: Assertion
+case_set = do
+  expected <- jinja2 "test/set.tmpl" dict
+  tmpl <- readTemplateFile def "test/set.tmpl"
+  expected @=? render tmpl (toJSON dict)
+  expected @=? render $(haijiFile def "test/set.tmpl") dict
+    where
+      dict = [key|ys|] ([0..2] :: [Integer]) `merge`
+             [key|xs|] ([0..3] :: [Integer])
+
 case_extends :: Assertion
 case_extends = do
   expected <- jinja2 "test/child.tmpl" dict

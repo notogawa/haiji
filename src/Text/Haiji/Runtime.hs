@@ -84,6 +84,11 @@ haijiAST  env  parentBlock  children (Block _base name _scoped body) =
     Just child -> haijiASTs env (Just body) children child
 haijiAST  env  parentBlock  children Super = maybe (error "invalid super()") (haijiASTs env Nothing children) parentBlock
 haijiAST _env _parentBlock _children (Comment _) = return ""
+haijiAST  env  parentBlock  children (Set lhs rhs scopes) =
+  do val <- eval rhs
+     p <- ask
+     return $ runReader (haijiASTs env parentBlock children scopes)
+       (let JSON.Object obj = p in  JSON.Object $ HM.insert (T.pack $ show lhs) val obj)
 
 loopVariables :: Int -> Int -> JSON.Value
 loopVariables len ix = JSON.object [ "first"     JSON..= (ix == 0)

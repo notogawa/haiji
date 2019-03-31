@@ -70,6 +70,7 @@ parseFileRecursively (Block base name scoped body) =
   (:[]) . Block base name scoped <$> readAllFile body
 parseFileRecursively Super = return [ Super ]
 parseFileRecursively (Comment c) = return [ Comment c ]
+parseFileRecursively (Set lhs rhs scopes) = (:[]) . Set lhs rhs <$> readAllFile scopes
 
 parseFile :: QuasiWithFile q => FilePath -> q Jinja2
 parseFile = parseFileWith deleteLastOneLF where

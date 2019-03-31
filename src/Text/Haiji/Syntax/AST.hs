@@ -52,6 +52,7 @@ data AST :: Loaded -> STAR where
   Block :: Base -> Identifier -> Scoped -> [AST a] -> AST a
   Super :: AST a
   Comment :: String -> AST a
+  Set :: Identifier -> Expression -> [AST a] -> AST a
 
 deriving instance Eq (AST a)
 
@@ -78,6 +79,7 @@ instance Show (AST a) where
     "{% endblock %}"
   show Super = "{{ super() }}"
   show (Comment c) = "{#" ++ c ++ "#}"
+  show (Set lhs rhs scopes) = "{% set " ++ show lhs ++ " = " ++ show rhs ++ " %}" ++ concatMap show scopes
 
 data ParserState =
   ParserState
@@ -145,6 +147,7 @@ haijiParser = concat <$> many (resetLeadingSpaces *> choice (map toList parsers)
             , block
             , super
             , comment
+            , set
             ]
   toList p = do
     b <- p
@@ -448,3 +451,23 @@ super = do
 --
 comment :: HaijiParser (AST 'Partially)
 comment = saveLeadingSpaces *> liftParser (string "{#" >> Comment <$> manyTill anyChar (string "#}"))
+
+-- |
+--
+-- >>> let eval = left (const "parse error") . parseOnly (evalHaijiParser set)
+-- >>> let exec = left (const "parse error") . parseOnly (execHaijiParser set)
+-- >>> eval "{% set lhs = rhs %}"
+-- Right {% set lhs = rhs %}
+-- >>> exec "{% set lhs = rhs %}"
+-- Right (ParserState {parserStateLeadingSpaces = Nothing, parserStateInBaseTemplate = True})
+-- >>> eval "  {% set lhs = rhs %}"
+-- Right {% set lhs = rhs %}
+-- >>> exec "  {% set lhs = rhs %}"
+-- Right (ParserState {parserStateLeadingSpaces = Just   , parserStateInBaseTemplate = True})
+--
+set :: HaijiParser (AST 'Partially)
+set = withLeadingSpacesOf start rest where
+  start = statement $ Set
+          <$> (string "set" >> skipMany1 space >> identifier)
+          <*> (skipMany1 space >> string "=" >> skipMany1 space >> expression)
+  rest f = f <$> haijiParser

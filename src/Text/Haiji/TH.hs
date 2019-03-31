@@ -92,6 +92,12 @@ haijiAST  env  parentBlock  children (Block _base name _scoped body) =
     Just child -> haijiASTs env (Just body) children child
 haijiAST  env  parentBlock  children Super = maybe (error "invalid super()") (haijiASTs env Nothing children) parentBlock
 haijiAST _env _parentBlock _children (Comment _) = runQ [e| return "" |]
+haijiAST  env  parentBlock  children (Set lhs rhs scopes) =
+  runQ [e| do val <- $(eval rhs)
+              p <- ask
+              return $ runReader $(haijiASTs env parentBlock children scopes)
+                (p `merge` singleton val (Key :: Key $(litT . strTyLit $ show lhs)))
+         |]
 
 loopVariables :: Int -> Int -> Dict '["first" :-> Bool, "index" :-> Int, "index0" :-> Int, "last" :-> Bool, "length" :-> Int, "revindex" :-> Int, "revindex0" :-> Int]
 loopVariables len ix = Dict $ M.fromList [ ("first", toDyn (ix == 0))
