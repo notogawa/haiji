@@ -47,6 +47,24 @@ You can use a dot to access attributes of a variable.
 {% endfor %}
 ~~~~
 
+#### Assignments
+
+~~~~
+{% for y in ys %}
+{% set prev_loop = loop %}
+{% for x in xs %}
+{{ prev_loop.index0 }} {{ loop.index0 }}
+{% endfor %}
+{% endfor %}
+~~~~
+
+Don't support
+
+* immediate value assignment
+* multiple targets
+* namespace objects
+* block assignments
+
 #### Include
 
 ~~~~
