@@ -158,8 +158,12 @@ haijiParser = concat <$> many (resetLeadingSpaces *> choice (map toList parsers)
 --
 -- >>> let eval = left (const "parse error") . parseOnly (evalHaijiParser literal)
 -- >>> eval "テスト{test"
+-- Right テスト{test
+-- >>> eval "テスト{{test"
 -- Right テスト
 -- >>> eval "   テスト  {test"
+-- Right    テスト  {test
+-- >>> eval "   テスト  {{test"
 -- Right    テスト
 -- >>> eval "   テスト  {%-test"
 -- Right    テスト
@@ -173,7 +177,8 @@ literal = liftParser $ Literal . T.concat <$> many1 go where
     pc <- peekChar
     case pc of
       Nothing  -> if T.null sp then fail "literal" else return sp
-      Just '{' -> fail "literal"
+      Just '{' -> do x <- try $ sequence [char '{', satisfy (\c -> c `notElem` ("{%" :: String))]
+                     T.append (sp <> T.pack x) <$> takeWhile1 (\c -> c /= '{' && not (isSpace c))
       _        -> T.append sp <$> takeWhile1 (\c -> c /= '{' && not (isSpace c))
 
 -- |
