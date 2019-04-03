@@ -17,6 +17,7 @@ import Control.Monad.State.Strict
 import Data.Attoparsec.Text
 import Data.Char
 import Data.Maybe
+import Data.Monoid
 import qualified Data.Text as T
 #if MIN_VERSION_base(4,9,0)
 import Data.Kind
