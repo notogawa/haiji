@@ -11,13 +11,13 @@ module Text.Haiji.Syntax.AST
        , parser
        ) where
 
+import Prelude hiding (takeWhile)
 import Control.Applicative
 import Control.Monad
 import Control.Monad.State.Strict
 import Data.Attoparsec.Text
 import Data.Char
 import Data.Maybe
-import Data.Monoid
 import qualified Data.Text as T
 #if MIN_VERSION_base(4,9,0)
 import Data.Kind
@@ -170,6 +170,8 @@ haijiParser = concat <$> many (resetLeadingSpaces *> choice (map toList parsers)
 -- Right    テスト
 -- >>> eval "   テスト  テスト  {%-test"
 -- Right    テスト  テスト
+-- >>> eval "main() {  }"
+-- Right main() {  }
 --
 literal :: HaijiParser (AST 'Partially)
 literal = liftParser $ Literal . T.concat <$> many1 go where
@@ -178,8 +180,8 @@ literal = liftParser $ Literal . T.concat <$> many1 go where
     pc <- peekChar
     case pc of
       Nothing  -> if T.null sp then fail "literal" else return sp
-      Just '{' -> do x <- try $ sequence [char '{', satisfy (\c -> c `notElem` ("{%" :: String))]
-                     T.append (sp <> T.pack x) <$> takeWhile1 (\c -> c /= '{' && not (isSpace c))
+      Just '{' -> do x <- try $ sequence [char '{', satisfy (`notElem` ("{%#" :: String))]
+                     T.append (sp `T.append` T.pack x) <$> takeWhile (\c -> c /= '{' && not (isSpace c))
       _        -> T.append sp <$> takeWhile1 (\c -> c /= '{' && not (isSpace c))
 
 -- |
