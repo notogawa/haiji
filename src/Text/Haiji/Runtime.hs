@@ -101,12 +101,14 @@ loopVariables len ix = JSON.object [ "first"     JSON..= (ix == 0)
                                    ]
 
 eval :: Expression -> Reader JSON.Value JSON.Value
-eval (Expression var _) = deref var
-
-deref :: Variable -> Reader JSON.Value JSON.Value
-deref (VariableBase v) = do
-  dict <- ask
-  maybe (error $ show (VariableBase v, dict)) return $ JSON.parseMaybe (JSON.withObject (show v) (JSON..: (T.pack $ show v))) dict
-deref (VariableAttribute v f) = do
-  dict <- deref v
-  maybe (error "2") return $ JSON.parseMaybe (JSON.withObject (show f) (JSON..: (T.pack $ show f))) dict
+eval (Expression expression) = go expression where
+  go :: Expr level -> Reader JSON.Value JSON.Value
+  go (ExprParen e) = go e
+  go (ExprVariable v) = do
+    dict <- ask
+    maybe (error $ show (ExprVariable v, dict)) return $ JSON.parseMaybe (JSON.withObject (show v) (JSON..: (T.pack $ show v))) dict
+  go (ExprAttributed e []) = go e
+  go (ExprAttributed e attrs) = do
+    dict <- go (ExprAttributed e $ init attrs)
+    maybe (error "2") return $ JSON.parseMaybe (JSON.withObject (show $ last attrs) (JSON..: (T.pack $ show $ last attrs))) dict
+  go (ExprFiltered e _filters) = go e
