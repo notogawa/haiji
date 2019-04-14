@@ -104,17 +104,11 @@ eval :: Expression -> Reader JSON.Value JSON.Value
 eval (Expression expression) = go expression where
   go :: Expr level -> Reader JSON.Value JSON.Value
   go (ExprParen e) = go e
-  go (ExprVariable v) = do
-    dict <- ask
-    maybe (error $ show (ExprVariable v, dict)) return $ JSON.parseMaybe (JSON.withObject (show v) (JSON..: (T.pack $ show v))) dict
+  go (ExprVariable v) = either error id . JSON.parseEither (JSON.withObject (show v) (JSON..: (T.pack $ show v))) <$> ask
   go (ExprAttributed e []) = go e
-  go (ExprAttributed e attrs) = do
-    dict <- go (ExprAttributed e $ init attrs)
-    maybe (error "2") return $ JSON.parseMaybe (JSON.withObject (show $ last attrs) (JSON..: (T.pack $ show $ last attrs))) dict
+  go (ExprAttributed e attrs) = either error id . JSON.parseEither (JSON.withObject (show $ last attrs) (JSON..: (T.pack $ show $ last attrs))) <$> go (ExprAttributed e $ init attrs)
   go (ExprFiltered e []) = go e
   go (ExprFiltered e filters) = applyFilter (last filters) $ Expression $ ExprFiltered e $ init filters
 
 applyFilter :: Filter -> Expression -> Reader JSON.Value JSON.Value
-applyFilter FilterAbs e = do
-  v <- eval e
-  maybe (error $ show e) return $ JSON.parseMaybe (JSON.withScientific (show v) (return . JSON.Number . abs)) v
+applyFilter FilterAbs e = either error id . JSON.parseEither (JSON.withScientific "abs" (return . JSON.Number . abs)) <$> eval e
