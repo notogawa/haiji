@@ -112,3 +112,4 @@ eval (Expression expression) = go expression where
 
 applyFilter :: Filter -> Expression -> Reader JSON.Value JSON.Value
 applyFilter FilterAbs e = either error id . JSON.parseEither (JSON.withScientific "abs" (return . JSON.Number . abs)) <$> eval e
+applyFilter FilterLength e = either error id . JSON.parseEither (JSON.withArray "length" (return . JSON.Number . flip scientific 0 . toEnum . V.length)) <$> eval e

@@ -121,3 +121,4 @@ eval (Expression expression) = go expression where
 
 applyFilter :: Quasi q => Filter -> Expression -> q Exp
 applyFilter FilterAbs e = runQ [e| abs <$> $(eval e) |]
+applyFilter FilterLength e = runQ [e| length <$> $(eval e) |]
