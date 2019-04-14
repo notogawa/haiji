@@ -122,6 +122,15 @@ case_variables = do
              [key|F__o_o__|] ("include '_'" :: String) `merge`
              [key|F1a2b3c|] ("include num" :: String)
 
+case_filter :: Assertion
+case_filter = do
+  expected <- jinja2 "test/filter.tmpl" dict
+  tmpl <- readTemplateFile def "test/filter.tmpl"
+  expected @=? render tmpl (toJSON dict)
+  expected @=? render $(haijiFile def "test/filter.tmpl") dict
+    where
+      dict = [key|value|] ((-1) :: Int)
+
 case_HTML_escape :: Assertion
 case_HTML_escape = do
   expected <- jinja2 "test/HTML_escape.tmpl" dict

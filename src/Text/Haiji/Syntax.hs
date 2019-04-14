@@ -1,6 +1,7 @@
 module Text.Haiji.Syntax
        ( Expression(..)
        , Expr(..)
+       , Filter(..)
        , Identifier
        , AST(..)
        , Loaded(..)
@@ -9,4 +10,5 @@ module Text.Haiji.Syntax
 
 import Text.Haiji.Syntax.AST
 import Text.Haiji.Syntax.Identifier
+import Text.Haiji.Syntax.Filter
 import Text.Haiji.Syntax.Expression

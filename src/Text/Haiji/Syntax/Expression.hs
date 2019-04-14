@@ -7,18 +7,20 @@ module Text.Haiji.Syntax.Expression
        , Expr(..)
        ) where
 
+import Prelude hiding (filter)
 #if MIN_VERSION_base(4,8,0)
 #else
 import Control.Applicative
 #endif
 import Data.Attoparsec.Text
 import Text.Haiji.Syntax.Identifier
-
+import Text.Haiji.Syntax.Filter
+{-
 data Filter = Filter deriving Eq
 
 instance Show Filter where
   show _ = ""
-
+-}
 data Filtered
 data Attributed
 data Level0
@@ -35,7 +37,7 @@ instance Show (Expr phase) where
   show (ExprParen e) = '(' : shows e ")"
   show (ExprVariable v) = show v
   show (ExprAttributed e attrs) = shows e $ concat [ '.' : show a | a <- attrs ]
-  show (ExprFiltered v filters) = shows v $ concat [ '|' : show f | f <- filters ]
+  show (ExprFiltered v filters) = shows v $ filters >>= show
 
 exprParen :: Parser (Expr Level0)
 exprParen = ExprParen <$> (char '(' *> exprFiltered <* char ')')
@@ -49,8 +51,20 @@ exprLevel0 = choice [exprParen, exprVariable]
 exprAttributed :: Parser (Expr Attributed)
 exprAttributed = ExprAttributed <$> exprLevel0 <*> many' (skipSpace *> char '.' *> skipSpace *> identifier)
 
+-- |
+--
+-- >>> import Control.Arrow (left)
+-- >>> let eval = left (const "parse error") . parseOnly exprFiltered
+-- >>> eval "foo|abs"
+-- Right foo|abs
+-- >>> eval "foo| abs"
+-- Right foo|abs
+-- >>> eval "foo |abs"
+-- Right foo|abs
+-- >>> eval "foo | abs"
+-- Right foo|abs
 exprFiltered :: Parser (Expr Filtered)
-exprFiltered = ExprFiltered <$> exprAttributed <*> return []
+exprFiltered = ExprFiltered <$> exprAttributed <*> many' (skipSpace *> filter)
 
 newtype Expression = Expression (Expr Filtered) deriving Eq
 

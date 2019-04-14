@@ -111,4 +111,10 @@ eval (Expression expression) = go expression where
   go (ExprAttributed e attrs) = do
     dict <- go (ExprAttributed e $ init attrs)
     maybe (error "2") return $ JSON.parseMaybe (JSON.withObject (show $ last attrs) (JSON..: (T.pack $ show $ last attrs))) dict
-  go (ExprFiltered e _filters) = go e
+  go (ExprFiltered e []) = go e
+  go (ExprFiltered e filters) = applyFilter (last filters) $ Expression $ ExprFiltered e $ init filters
+
+applyFilter :: Filter -> Expression -> Reader JSON.Value JSON.Value
+applyFilter FilterAbs e = do
+  v <- eval e
+  maybe (error $ show e) return $ JSON.parseMaybe (JSON.withScientific (show v) (return . JSON.Number . abs)) v
