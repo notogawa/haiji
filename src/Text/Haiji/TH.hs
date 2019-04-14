@@ -129,3 +129,7 @@ eval (Expression expression) = go expression where
     (Mul , e') -> runQ [e| (*) <$> $(go $ ExprMulDiv e $ init es) <*> $(go e') |]
     (DivF, e') -> runQ [e| (/) <$> $(go $ ExprMulDiv e $ init es) <*> $(go e') |]
     (DivI, e') -> runQ [e| div <$> $(go $ ExprMulDiv e $ init es) <*> $(go e') |]
+  go (ExprAddSub e []) = go e
+  go (ExprAddSub e es) = case last es of
+    (Add, e') -> runQ [e| (+) <$> $(go $ ExprAddSub e $ init es) <*> $(go e') |]
+    (Sub, e') -> runQ [e| (-) <$> $(go $ ExprAddSub e $ init es) <*> $(go e') |]

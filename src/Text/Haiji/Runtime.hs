@@ -134,4 +134,12 @@ eval (Expression expression) = go expression where
         _                -> error "(/)"
       DivI -> case (floatingOrInteger v1 :: Either Float Integer, floatingOrInteger v2 :: Either Float Integer) of
         (Right l, Right r) -> return $ JSON.Number $ scientific (l `div` r) 0
-        _                  -> error "(/)"
+        _                  -> error "(//)"
+  go (ExprAddSub e []) = go e
+  go (ExprAddSub e es) = do
+    let (op, e') = last es
+    v1 <- either error id . JSON.parseEither (JSON.withScientific ("lhs of (" ++ shows op ")") return) <$> go (ExprAddSub e $ init es)
+    v2 <- either error id . JSON.parseEither (JSON.withScientific ("rhs of (" ++ shows op ")") return) <$> go e'
+    case op of
+      Add -> return $ JSON.Number $ v1 + v2
+      Sub -> return $ JSON.Number $ v1 - v2
