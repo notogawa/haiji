@@ -119,8 +119,8 @@ eval (Expression expression) = go expression where
   go (ExprAttributed e []) = go e
   go (ExprAttributed e attrs) = runQ [e| retrieve <$> $(go $ ExprAttributed e $ init attrs) <*> return (Key :: Key $(litT . strTyLit $ show $ last attrs)) |]
   go (ExprFiltered e []) = go e
-  go (ExprFiltered e filters) = runQ [e| $(applyFilter (last filters) $ Expression $ ExprFiltered e $ init filters) |]
-
-applyFilter :: Quasi q => Filter -> Expression -> q Exp
-applyFilter FilterAbs e = runQ [e| abs <$> $(eval e) |]
-applyFilter FilterLength e = runQ [e| length <$> $(eval e) |]
+  go (ExprFiltered e filters) = runQ [e| $(applyFilter (last filters) $ ExprFiltered e $ init filters) |] where
+    applyFilter FilterAbs e' = runQ [e| abs <$> $(go e') |]
+    applyFilter FilterLength e' = runQ [e| length <$> $(go e') |]
+  go (ExprPow e []) = go e
+  go (ExprPow e ps) = runQ [e| (^) <$> $(go $ ExprPow e $ init ps) <*> $(go $ last ps) |]

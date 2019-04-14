@@ -111,8 +111,14 @@ eval (Expression expression) = go expression where
   go (ExprAttributed e []) = go e
   go (ExprAttributed e attrs) = either error id . JSON.parseEither (JSON.withObject (show $ last attrs) (JSON..: (T.pack $ show $ last attrs))) <$> go (ExprAttributed e $ init attrs)
   go (ExprFiltered e []) = go e
-  go (ExprFiltered e filters) = applyFilter (last filters) $ Expression $ ExprFiltered e $ init filters
+  go (ExprFiltered e filters) = applyFilter (last filters) $ ExprFiltered e $ init filters where
+    applyFilter FilterAbs e' = either error id . JSON.parseEither (JSON.withScientific "abs" (return . JSON.Number . abs)) <$> go e'
+    applyFilter FilterLength e' = either error id . JSON.parseEither (JSON.withArray "length" (return . JSON.Number . flip scientific 0 . toEnum . V.length)) <$> go e'
 
-applyFilter :: Filter -> Expression -> Reader JSON.Value JSON.Value
-applyFilter FilterAbs e = either error id . JSON.parseEither (JSON.withScientific "abs" (return . JSON.Number . abs)) <$> eval e
-applyFilter FilterLength e = either error id . JSON.parseEither (JSON.withArray "length" (return . JSON.Number . flip scientific 0 . toEnum . V.length)) <$> eval e
+  go (ExprPow e []) = go e
+  go (ExprPow e ps) = do
+    v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (**)" return) <$> go (ExprPow e $ init ps)
+    v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (**)" return) <$> go (last ps)
+    case (floatingOrInteger v1 :: Either Float Integer, floatingOrInteger v2 :: Either Float Int) of
+      (Right l, Right r) -> return $ JSON.Number $ scientific (l ^ r) 0
+      _                  -> error "(**)"
