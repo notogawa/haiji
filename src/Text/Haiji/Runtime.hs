@@ -48,6 +48,7 @@ haijiAST  env _parentBlock _children (Eval x) =
   do let esc = if autoEscape env then htmlEscape else rawEscape
      obj <- eval x
      case obj of
+       JSON.Bool b   -> return $ (`escapeBy` esc) $ toLT b
        JSON.String s -> return $ (`escapeBy` esc) $ toLT s
        JSON.Number n -> case floatingOrInteger (n :: Scientific) of
          Left  r -> let _ = (r :: Double) in error "invalid value type"
@@ -103,8 +104,10 @@ loopVariables len ix = JSON.object [ "first"     JSON..= (ix == 0)
 eval :: Expression -> Reader JSON.Value JSON.Value
 eval (Expression expression) = go expression where
   go :: Expr level -> Reader JSON.Value JSON.Value
-  go (ExprParen e) = go e
+  go (ExprIntegerLiteral n) = return $ JSON.Number $ scientific (toEnum n) 0
+  go (ExprBooleanLiteral b) = return $ JSON.Bool b
   go (ExprVariable v) = either error id . JSON.parseEither (JSON.withObject (show v) (JSON..: (T.pack $ show v))) <$> ask
+  go (ExprParen e) = go e
   go (ExprAttributed e []) = go e
   go (ExprAttributed e attrs) = either error id . JSON.parseEither (JSON.withObject (show $ last attrs) (JSON..: (T.pack $ show $ last attrs))) <$> go (ExprAttributed e $ init attrs)
   go (ExprFiltered e []) = go e

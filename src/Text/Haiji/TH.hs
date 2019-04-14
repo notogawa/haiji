@@ -112,8 +112,10 @@ loopVariables len ix = Dict $ M.fromList [ ("first", toDyn (ix == 0))
 eval :: Quasi q => Expression -> q Exp
 eval (Expression expression) = go expression where
   go :: Quasi q => Expr level -> q Exp
-  go (ExprParen e) = go e
+  go (ExprIntegerLiteral n) = runQ [e| return (n :: Int) |]
+  go (ExprBooleanLiteral b) = runQ [e| return b|]
   go (ExprVariable v) = runQ [e| retrieve <$> ask <*> return (Key :: Key $(litT . strTyLit $ show v)) |]
+  go (ExprParen e) = go e
   go (ExprAttributed e []) = go e
   go (ExprAttributed e attrs) = runQ [e| retrieve <$> $(go $ ExprAttributed e $ init attrs) <*> return (Key :: Key $(litT . strTyLit $ show $ last attrs)) |]
   go (ExprFiltered e []) = go e
