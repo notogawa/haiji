@@ -6,6 +6,7 @@ module Text.Haiji.Syntax.Expression
        ( Expression(..)
        , expression
        , Expr(..)
+       , MulDiv(..)
        ) where
 
 import Prelude hiding (filter)
@@ -22,18 +23,26 @@ data Level0
 data Level1
 data Level2
 data Level3
+data Level4
+
+data MulDiv = Mul | DivF | DivI deriving Eq
+
+instance Show MulDiv where
+  show Mul = "*"
+  show DivF = "/"
+  show DivI = "//"
 
 data Expr level where
   ExprIntegerLiteral :: Int -> Expr Level0
   ExprBooleanLiteral :: Bool -> Expr Level0
   ExprVariable :: Identifier -> Expr Level0
-  ExprParen :: Expr Level3 -> Expr Level0
+  ExprParen :: Expr Level4 -> Expr Level0
   ExprAttributed :: Expr Level0 -> [Identifier] -> Expr Level1
   ExprFiltered :: Expr Level1 -> [Filter] -> Expr Level2
   ExprPow :: Expr Level2 -> [Expr Level2] -> Expr Level3
+  ExprMulDiv :: Expr Level3 -> [(MulDiv, Expr Level3)] -> Expr Level4
 
 {-
-  ExprPow :: Expr Level0 -> Expr Level1 -> Expr Level1
   ExprMul :: Expr Level0 -> Expr Level1 -> Expr Level1
   ExprDivF :: Expr Level0 -> Expr Level1 -> Expr Level1
   ExprDivI :: Expr Level0 -> Expr Level1 -> Expr Level1
@@ -48,11 +57,10 @@ instance Show (Expr phase) where
   show (ExprBooleanLiteral b) = if b then "true" else "false"
   show (ExprVariable v) = show v
   show (ExprParen e) = '(' : shows e ")"
-  show (ExprPow e ps) = concat $ show e : concat [ [ " ** ", show p ] | p <- ps ]
-  -- show (ExprLift0To1 e) = show e
-  -- show (ExprLift1To2 e) = show e
   show (ExprAttributed e attrs) = shows e $ concat [ '.' : show a | a <- attrs ]
   show (ExprFiltered v filters) = shows v $ filters >>= show
+  show (ExprPow e ps) = concat $ show e : concat [ [ " ** ", show p ] | p <- ps ]
+  show (ExprMulDiv e ps) = concat $ show e : concat [ [ ' ' : shows op " ", show p ] | (op, p) <- ps ]
 
 -- |
 --
@@ -94,7 +102,7 @@ exprVariable = ExprVariable <$> identifier
 -- >>> eval "( foo)"
 -- Right (foo)
 exprParen :: Parser (Expr Level0)
-exprParen = ExprParen <$> (char '(' *> skipSpace *> exprLevel3 <* skipSpace <* char ')')
+exprParen = ExprParen <$> (char '(' *> skipSpace *> exprLevel4 <* skipSpace <* char ')')
 
 exprLevel0 :: Parser (Expr Level0)
 exprLevel0 = choice [ exprIntegerLiteral
@@ -171,7 +179,30 @@ exprLevel3 :: Parser (Expr Level3)
 exprLevel3 = choice [ exprPow
                     ]
 
-newtype Expression = Expression (Expr Level3) deriving Eq
+-- |
+--
+-- >>> import Control.Arrow (left)
+-- >>> let eval = left (const "parse error") . parseOnly exprMulDiv
+-- >>> eval "1*2//3"
+-- Right 1 * 2 // 3
+-- >>> eval "1 * 2 // 3"
+-- Right 1 * 2 // 3
+-- >>> eval "1//2*3"
+-- Right 1 // 2 * 3
+-- >>> eval "1*2/3"
+-- Right 1 * 2 / 3
+exprMulDiv :: Parser (Expr Level4)
+exprMulDiv = ExprMulDiv <$> exprLevel3 <*> many' ((,) <$> (skipSpace *> op) <*> (skipSpace *> exprLevel3)) where
+  op = choice [ string "//" *> return DivI
+              , string "/" *> return DivF
+              , string "*" *> return Mul
+              ]
+
+exprLevel4 :: Parser (Expr Level4)
+exprLevel4 = choice [ exprMulDiv
+                    ]
+
+newtype Expression = Expression (Expr Level4) deriving Eq
 
 instance Show Expression where
   show (Expression e) = show e
@@ -216,4 +247,4 @@ instance Show Expression where
 -- Right foo.bar.baz
 --
 expression :: Parser Expression
-expression = Expression <$> exprLevel3 -- many (skipSpace >> char '|' >> skipSpace >> filter)
+expression = Expression <$> exprLevel4

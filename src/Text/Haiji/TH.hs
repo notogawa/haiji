@@ -123,4 +123,9 @@ eval (Expression expression) = go expression where
     applyFilter FilterAbs e' = runQ [e| abs <$> $(go e') |]
     applyFilter FilterLength e' = runQ [e| length <$> $(go e') |]
   go (ExprPow e []) = go e
-  go (ExprPow e ps) = runQ [e| (^) <$> $(go $ ExprPow e $ init ps) <*> $(go $ last ps) |]
+  go (ExprPow e es) = runQ [e| (^) <$> $(go $ ExprPow e $ init es) <*> $(go $ last es) |]
+  go (ExprMulDiv e []) = go e
+  go (ExprMulDiv e es) = case last es of
+    (Mul , e') -> runQ [e| (*) <$> $(go $ ExprMulDiv e $ init es) <*> $(go e') |]
+    (DivF, e') -> runQ [e| (/) <$> $(go $ ExprMulDiv e $ init es) <*> $(go e') |]
+    (DivI, e') -> runQ [e| div <$> $(go $ ExprMulDiv e $ init es) <*> $(go e') |]

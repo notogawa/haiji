@@ -116,9 +116,22 @@ eval (Expression expression) = go expression where
     applyFilter FilterLength e' = either error id . JSON.parseEither (JSON.withArray "length" (return . JSON.Number . flip scientific 0 . toEnum . V.length)) <$> go e'
 
   go (ExprPow e []) = go e
-  go (ExprPow e ps) = do
-    v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (**)" return) <$> go (ExprPow e $ init ps)
-    v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (**)" return) <$> go (last ps)
-    case (floatingOrInteger v1 :: Either Float Integer, floatingOrInteger v2 :: Either Float Int) of
+  go (ExprPow e es) = do
+    v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (**)" return) <$> go (ExprPow e $ init es)
+    v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (**)" return) <$> go (last es)
+    case (floatingOrInteger v1 :: Either Float Integer, floatingOrInteger v2 :: Either Float Integer) of
       (Right l, Right r) -> return $ JSON.Number $ scientific (l ^ r) 0
       _                  -> error "(**)"
+  go (ExprMulDiv e []) = go e
+  go (ExprMulDiv e es) = do
+    let (op, e') = last es
+    v1 <- either error id . JSON.parseEither (JSON.withScientific ("lhs of (" ++ shows op ")") return) <$> go (ExprMulDiv e $ init es)
+    v2 <- either error id . JSON.parseEither (JSON.withScientific ("rhs of (" ++ shows op ")") return) <$> go e'
+    case op of
+      Mul  -> return $ JSON.Number $ v1 * v2
+      DivF -> case (floatingOrInteger v1 :: Either Float Integer, floatingOrInteger v2 :: Either Float Integer) of
+        (Left l, Left r) -> return $ JSON.Number $ fromFloatDigits (l / r)
+        _                -> error "(/)"
+      DivI -> case (floatingOrInteger v1 :: Either Float Integer, floatingOrInteger v2 :: Either Float Integer) of
+        (Right l, Right r) -> return $ JSON.Number $ scientific (l `div` r) 0
+        _                  -> error "(/)"
