@@ -31,6 +31,15 @@ You can use a dot to access attributes of a variable.
 {{ foo.bar }}
 ~~~~
 
+### Filters
+
+* abs
+* length
+
+~~~~
+{{ foo|length|abs }}
+~~~~
+
 ### Control Structures
 
 #### If
@@ -115,6 +124,60 @@ Raw block
 
 ~~~~
 {# a comment #}
+~~~~
+
+### Expressions
+
+#### Literals
+
+Integer Literals
+
+~~~~
+{{ 123 }}
+~~~~
+
+Boolean Literals
+
+~~~~
+{{ true }}
+{{ false }}
+~~~~
+
+#### Arithmetics
+
+~~~~
+{{ foo + bar}}
+{{ foo - bar}}
+{{ foo * bar}}
+{{ foo // bar}}
+{{ foo % bar}}
+{{ foo ** bar}}
+~~~~
+
+#### Comparisons
+
+~~~~
+{{ foo == bar }}
+{{ foo != bar }}
+{{ foo > bar }}
+{{ foo >= bar }}
+{{ foo < bar }}
+{{ foo <= bar }}
+~~~~
+
+#### Logic
+
+~~~~
+{{ foo and bar }}
+{{ foo or bar }}
+~~~~
+
+### Functions
+
+* range
+
+~~~~
+{% for i in range(n) %}{{ i }}{% endfor %}
 ~~~~
 
 ## Testing
