@@ -110,10 +110,35 @@ loopVariables len ix = Dict $ M.fromList [ ("first", toDyn (ix == 0))
                                          ]
 
 eval :: Quasi q => Expression -> q Exp
-eval (Expression var _) = deref var
-
-deref :: Quasi q => Variable -> q Exp
-deref (VariableBase v) =
-  runQ [e| retrieve <$> ask <*> return (Key :: Key $(litT . strTyLit $ show v)) |]
-deref (VariableAttribute v f) =
-  runQ [e| retrieve <$> $(deref v) <*> return (Key :: Key $(litT . strTyLit $ show f)) |]
+eval (Expression expression) = go expression where
+  go :: Quasi q => Expr External level -> q Exp
+  go (ExprLift e) = go e
+  go (ExprIntegerLiteral n) = runQ [e| return (n :: Int) |]
+  go (ExprBooleanLiteral b) = runQ [e| return b|]
+  go (ExprVariable v) = runQ [e| retrieve <$> ask <*> return (Key :: Key $(litT . strTyLit $ show v)) |]
+  go (ExprParen e) = go e
+  go (ExprRange [stop]) = runQ [e| enumFromTo 0 <$> (pred <$> $(go stop)) |]
+  go (ExprRange [start, stop]) = runQ [e| enumFromTo <$> $(go start) <*> (pred <$> $(go stop)) |]
+  go (ExprRange [start, stop, step]) = runQ [e| (\a b c -> [a,a+c..b]) <$> $(go start) <*> (pred <$> $(go stop)) <*> $(go step) |]
+  go (ExprRange _) = error "unreachable"
+  go (ExprAttributed e []) = go e
+  go (ExprAttributed e attrs) = runQ [e| retrieve <$> $(go $ ExprAttributed e $ init attrs) <*> return (Key :: Key $(litT . strTyLit $ show $ last attrs)) |]
+  go (ExprFiltered e []) = go e
+  go (ExprFiltered e filters) = runQ [e| $(applyFilter (last filters) $ ExprFiltered e $ init filters) |] where
+    applyFilter FilterAbs e' = runQ [e| abs <$> $(go e') |]
+    applyFilter FilterLength e' = runQ [e| length <$> $(go e') |]
+  go (ExprPow e1 e2) = runQ [e| (^) <$> $(go e1) <*> $(go e2) |]
+  go (ExprMul e1 e2) = runQ [e| (*) <$> $(go e1) <*> $(go e2) |]
+  go (ExprDivF e1 e2) = runQ [e| (/) <$> $(go e1) <*> $(go e2) |]
+  go (ExprDivI e1 e2) = runQ [e| div <$> $(go e1) <*> $(go e2) |]
+  go (ExprMod e1 e2) = runQ [e| mod <$> $(go e1) <*> $(go e2) |]
+  go (ExprAdd e1 e2) = runQ [e| (+) <$> $(go e1) <*> $(go e2) |]
+  go (ExprSub e1 e2) = runQ [e| (-) <$> $(go e1) <*> $(go e2) |]
+  go (ExprEQ e1 e2) = runQ [e| (==) <$> $(go e1) <*> $(go e2) |]
+  go (ExprNEQ e1 e2) = runQ [e| (/=) <$> $(go e1) <*> $(go e2) |]
+  go (ExprGT e1 e2) = runQ [e| (>) <$> $(go e1) <*> $(go e2) |]
+  go (ExprGE e1 e2) = runQ [e| (>=) <$> $(go e1) <*> $(go e2) |]
+  go (ExprLT e1 e2) = runQ [e| (<) <$> $(go e1) <*> $(go e2) |]
+  go (ExprLE e1 e2) = runQ [e| (<=) <$> $(go e1) <*> $(go e2) |]
+  go (ExprAnd e1 e2) = runQ [e| (&&) <$> $(go e1) <*> $(go e2) |]
+  go (ExprOr e1 e2) = runQ [e| (||) <$> $(go e1) <*> $(go e2) |]

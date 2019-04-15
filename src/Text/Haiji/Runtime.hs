@@ -48,6 +48,7 @@ haijiAST  env _parentBlock _children (Eval x) =
   do let esc = if autoEscape env then htmlEscape else rawEscape
      obj <- eval x
      case obj of
+       JSON.Bool b   -> return $ (`escapeBy` esc) $ toLT b
        JSON.String s -> return $ (`escapeBy` esc) $ toLT s
        JSON.Number n -> case floatingOrInteger (n :: Scientific) of
          Left  r -> let _ = (r :: Double) in error "invalid value type"
@@ -101,12 +102,116 @@ loopVariables len ix = JSON.object [ "first"     JSON..= (ix == 0)
                                    ]
 
 eval :: Expression -> Reader JSON.Value JSON.Value
-eval (Expression var _) = deref var
+eval (Expression expression) = go expression where
+  go :: Expr External level -> Reader JSON.Value JSON.Value
+  go (ExprLift e) = go e
+  go (ExprIntegerLiteral n) = return $ JSON.Number $ scientific (toEnum n) 0
+  go (ExprBooleanLiteral b) = return $ JSON.Bool b
+  go (ExprVariable v) = either error id . JSON.parseEither (JSON.withObject (show v) (JSON..: (T.pack $ show v))) <$> ask
+  go (ExprParen e) = go e
+  go (ExprRange [stop]) = do
+    sstop <- either error id . JSON.parseEither (JSON.withScientific "range" return) <$> go stop
+    case floatingOrInteger sstop :: Either Float Integer of
+      (Right istop) -> return $ JSON.Array $ V.fromList $ map (JSON.Number . flip scientific 0) [0..istop-1]
+      _             -> error "range"
+  go (ExprRange [start, stop]) = do
+    sstart <- either error id . JSON.parseEither (JSON.withScientific "range" return) <$> go start
+    sstop <- either error id . JSON.parseEither (JSON.withScientific "range" return) <$> go stop
+    case (floatingOrInteger sstart :: Either Float Integer, floatingOrInteger sstop :: Either Float Integer) of
+      (Right istart, Right istop) -> return $ JSON.Array $ V.fromList $ map (JSON.Number . flip scientific 0) [istart..istop-1]
+      _             -> error "range"
+  go (ExprRange [start, stop, step]) = do
+    sstart <- either error id . JSON.parseEither (JSON.withScientific "range" return) <$> go start
+    sstop <- either error id . JSON.parseEither (JSON.withScientific "range" return) <$> go stop
+    sstep <- either error id . JSON.parseEither (JSON.withScientific "range" return) <$> go step
+    case (floatingOrInteger sstart :: Either Float Integer, floatingOrInteger sstop :: Either Float Integer, floatingOrInteger sstep :: Either Float Integer) of
+      (Right istart, Right istop, Right istep) -> return $ JSON.Array $ V.fromList $ map (JSON.Number . flip scientific 0) [istart,istart+istep..istop-1]
+      _             -> error "range"
+  go (ExprRange _) = error "unreachable"
+  go (ExprAttributed e []) = go e
+  go (ExprAttributed e attrs) = either error id . JSON.parseEither (JSON.withObject (show $ last attrs) (JSON..: (T.pack $ show $ last attrs))) <$> go (ExprAttributed e $ init attrs)
+  go (ExprFiltered e []) = go e
+  go (ExprFiltered e filters) = applyFilter (last filters) $ ExprFiltered e $ init filters where
+    applyFilter FilterAbs e' = either error id . JSON.parseEither (JSON.withScientific "abs" (return . JSON.Number . abs)) <$> go e'
+    applyFilter FilterLength e' = either error id . JSON.parseEither (JSON.withArray "length" (return . JSON.Number . flip scientific 0 . toEnum . V.length)) <$> go e'
 
-deref :: Variable -> Reader JSON.Value JSON.Value
-deref (VariableBase v) = do
-  dict <- ask
-  maybe (error $ show (VariableBase v, dict)) return $ JSON.parseMaybe (JSON.withObject (show v) (JSON..: (T.pack $ show v))) dict
-deref (VariableAttribute v f) = do
-  dict <- deref v
-  maybe (error "2") return $ JSON.parseMaybe (JSON.withObject (show f) (JSON..: (T.pack $ show f))) dict
+  go (ExprPow e1 e2) = do
+    v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (**)" return) <$> go e1
+    v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (**)" return) <$> go e2
+    case (floatingOrInteger v1 :: Either Float Integer, floatingOrInteger v2 :: Either Float Integer) of
+      (Right l, Right r) -> return $ JSON.Number $ scientific (l ^ r) 0
+      _                  -> error "(**)"
+  go (ExprMul e1 e2) = do
+    v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (*)" return) <$> go e1
+    v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (*)" return) <$> go e2
+    return $ JSON.Number $ v1 * v2
+  go (ExprDivF e1 e2) = do
+    v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (/)" return) <$> go e1
+    v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (/)" return) <$> go e2
+    return $ JSON.Number $ v1 / v2
+  go (ExprDivI e1 e2) = do
+    v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (//)" return) <$> go e1
+    v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (//)" return) <$> go e2
+    case (floatingOrInteger v1 :: Either Float Integer, floatingOrInteger v2 :: Either Float Integer) of
+      (Right l, Right r) -> return $ JSON.Number $ scientific (l `div` r) 0
+      _                  -> error "(//)"
+  go (ExprMod e1 e2) = do
+    v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (%)" return) <$> go e1
+    v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (%)" return) <$> go e2
+    case (floatingOrInteger v1 :: Either Float Integer, floatingOrInteger v2 :: Either Float Integer) of
+      (Right l, Right r) -> return $ JSON.Number $ scientific (l `mod` r) 0
+      _                  -> error "(%)"
+  go (ExprAdd e1 e2) = do
+    v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (/)" return) <$> go e1
+    v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (/)" return) <$> go e2
+    return $ JSON.Number $ v1 + v2
+  go (ExprSub e1 e2) = do
+    v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (/)" return) <$> go e1
+    v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (/)" return) <$> go e2
+    return $ JSON.Number $ v1 - v2
+  go (ExprEQ e1 e2) = JSON.Bool <$> ((==) <$> go e1 <*> go e2)
+  go (ExprNEQ e1 e2) = JSON.Bool <$> ((/=) <$> go e1 <*> go e2)
+  go (ExprGT e1 e2) = do
+    v1 <- go e1
+    v2 <- go e2
+    case (v1, v2) of
+      (JSON.Number l, JSON.Number r) -> return $ JSON.Bool $ l > r
+      (JSON.String l, JSON.String r) -> return $ JSON.Bool $ l > r
+      (JSON.Bool   l, JSON.Bool   r) -> return $ JSON.Bool $ l > r
+      _ -> error "(>)"
+  go (ExprGE e1 e2) = do
+    v1 <- go e1
+    v2 <- go e2
+    case (v1, v2) of
+      (JSON.Number l, JSON.Number r) -> return $ JSON.Bool $ l >= r
+      (JSON.String l, JSON.String r) -> return $ JSON.Bool $ l >= r
+      (JSON.Bool   l, JSON.Bool   r) -> return $ JSON.Bool $ l >= r
+      _ -> error "(>=)"
+  go (ExprLT e1 e2) = do
+    v1 <- go e1
+    v2 <- go e2
+    case (v1, v2) of
+      (JSON.Number l, JSON.Number r) -> return $ JSON.Bool $ l < r
+      (JSON.String l, JSON.String r) -> return $ JSON.Bool $ l < r
+      (JSON.Bool   l, JSON.Bool   r) -> return $ JSON.Bool $ l < r
+      _ -> error "(<)"
+  go (ExprLE e1 e2) = do
+    v1 <- go e1
+    v2 <- go e2
+    case (v1, v2) of
+      (JSON.Number l, JSON.Number r) -> return $ JSON.Bool $ l <= r
+      (JSON.String l, JSON.String r) -> return $ JSON.Bool $ l <= r
+      (JSON.Bool   l, JSON.Bool   r) -> return $ JSON.Bool $ l <= r
+      _ -> error "(<=)"
+  go (ExprAnd e1 e2) = do
+    v1 <- go e1
+    v2 <- go e2
+    case (v1, v2) of
+      (JSON.Bool   l, JSON.Bool   r) -> return $ JSON.Bool $ l && r
+      _ -> error "(<=)"
+  go (ExprOr e1 e2) = do
+    v1 <- go e1
+    v2 <- go e2
+    case (v1, v2) of
+      (JSON.Bool   l, JSON.Bool   r) -> return $ JSON.Bool $ l || r
+      _ -> error "(<=)"

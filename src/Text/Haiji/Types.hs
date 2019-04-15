@@ -58,3 +58,4 @@ instance ToLT T.Text  where toLT = LT.fromStrict
 instance ToLT LT.Text where toLT = id
 instance ToLT Int     where toLT = toLT . show
 instance ToLT Integer where toLT = toLT . show
+instance ToLT Bool    where toLT = toLT . show

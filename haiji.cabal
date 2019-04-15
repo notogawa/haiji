@@ -31,8 +31,8 @@ library
                        Text.Haiji.Syntax
                        Text.Haiji.Syntax.AST
                        Text.Haiji.Syntax.Identifier
+                       Text.Haiji.Syntax.Filter
                        Text.Haiji.Syntax.Expression
-                       Text.Haiji.Syntax.Variable
   build-depends:       base >=4.7 && <5
                      , text
                      , attoparsec >=0.10
