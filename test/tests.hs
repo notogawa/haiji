@@ -142,6 +142,16 @@ case_arith = do
       dict = [key|value|] ((-1) :: Int) `merge`
              [key|array|] ([1,2,3] :: [Int])
 
+case_comparison :: Assertion
+case_comparison = do
+  expected <- jinja2 "test/comparison.tmpl" dict
+  tmpl <- readTemplateFile def "test/comparison.tmpl"
+  expected @=? render tmpl (toJSON dict)
+  expected @=? render $(haijiFile def "test/comparison.tmpl") dict
+    where
+      dict = [key|value|] ((1) :: Int) `merge` -- There exists jinja2 bug (https://github.com/pallets/jinja/issues/755)
+             [key|array|] ([1,2,3] :: [Int])
+
 case_HTML_escape :: Assertion
 case_HTML_escape = do
   expected <- jinja2 "test/HTML_escape.tmpl" dict

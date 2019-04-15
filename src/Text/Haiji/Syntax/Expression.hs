@@ -31,6 +31,9 @@ type Level2 = S Level1
 type Level3 = S Level2
 type Level4 = S Level3
 type Level5 = S Level4
+type Level6 = S Level5
+
+type LevelMax = Level6
 
 data MulDiv = Mul | DivF | DivI deriving Eq
 
@@ -49,11 +52,11 @@ data Internal
 data External
 
 data Expr visibility level where
-  ExprLift :: Expr visibility a -> Expr visibility (S a)
+  ExprLift :: Expr visibility lv -> Expr visibility (S lv)
   ExprIntegerLiteral :: Int -> Expr visibility Level0
   ExprBooleanLiteral :: Bool -> Expr visibility Level0
   ExprVariable :: Identifier -> Expr visibility Level0
-  ExprParen :: Expr visibility Level5 -> Expr visibility Level0
+  ExprParen :: Expr visibility LevelMax -> Expr visibility Level0
   ExprAttributed :: Expr visibility Level0 -> [Identifier] -> Expr visibility Level1
   ExprFiltered :: Expr visibility Level1 -> [Filter] -> Expr visibility Level2
   ExprInternalPow :: Expr Internal Level2 -> [Expr Internal Level2] -> Expr Internal Level3
@@ -65,6 +68,7 @@ data Expr visibility level where
   ExprInternalAddSub :: Expr Internal Level4 -> [(AddSub, Expr Internal Level4)] -> Expr Internal Level5
   ExprAdd :: Expr External Level5 -> Expr External Level4 -> Expr External Level5
   ExprSub :: Expr External Level5 -> Expr External Level4 -> Expr External Level5
+  ExprEq :: Expr visibility Level5 -> Expr visibility Level5 -> Expr visibility Level6
 
 toExternal :: Expr Internal level -> Expr External level
 toExternal (ExprLift e) = ExprLift $ toExternal e
@@ -85,6 +89,7 @@ toExternal (ExprInternalAddSub e []) = ExprLift $ toExternal e
 toExternal (ExprInternalAddSub e es) = case last es of
   (Add, e') -> ExprAdd (toExternal (ExprInternalAddSub e $ init es)) (toExternal e')
   (Sub, e') -> ExprSub (toExternal (ExprInternalAddSub e $ init es)) (toExternal e')
+toExternal (ExprEq e1 e2) = ExprEq (toExternal e1) (toExternal e2)
 
 deriving instance Eq (Expr visibility level)
 
@@ -105,6 +110,7 @@ instance Show (Expr visibility phase) where
   show (ExprInternalAddSub e es) = concat $ show e : concat [ [ ' ' : shows op " ", show e' ] | (op, e') <- es ]
   show (ExprAdd e1 e2) = shows e1 " + " ++ show e2
   show (ExprSub e1 e2) = shows e1 " - " ++ show e2
+  show (ExprEq e1 e2) = shows e1 " == " ++ show e2
 
 -- |
 --
@@ -143,7 +149,7 @@ exprVariable = ExprVariable <$> identifier
 -- >>> eval "( foo)"
 -- Right (foo)
 exprParen :: Parser (Expr Internal Level0)
-exprParen = ExprParen <$> (char '(' *> skipSpace *> exprLevel5 <* skipSpace <* char ')')
+exprParen = ExprParen <$> (char '(' *> skipSpace *> exprLevel6 <* skipSpace <* char ')')
 
 exprLevel0 :: Parser (Expr Internal Level0)
 exprLevel0 = choice [ exprIntegerLiteral
@@ -234,7 +240,16 @@ exprLevel5 :: Parser (Expr Internal Level5)
 exprLevel5 = choice [ exprAddSub
                     ]
 
-newtype Expression = Expression (Expr External Level5) deriving Eq
+exprEq :: Parser (Expr Internal Level6)
+exprEq = ExprEq <$> exprLevel5 <*> (skipSpace *> string "==" *> skipSpace *> exprLevel5)
+
+exprLevel6 :: Parser (Expr Internal Level6)
+exprLevel6 = choice [ exprEq
+                    , ExprLift <$> exprLevel5
+                    ]
+
+
+newtype Expression = Expression (Expr External LevelMax) deriving Eq
 
 instance Show Expression where
   show (Expression e) = show e
@@ -278,4 +293,4 @@ instance Show Expression where
 -- Right foo.bar.baz
 --
 expression :: Parser Expression
-expression = Expression . toExternal <$> exprLevel5
+expression = Expression . toExternal <$> exprLevel6

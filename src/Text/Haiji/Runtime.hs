@@ -144,3 +144,4 @@ eval (Expression expression) = go expression where
     v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (/)" return) <$> go e1
     v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (/)" return) <$> go e2
     return $ JSON.Number $ v1 - v2
+  go (ExprEq e1 e2) = JSON.Bool <$> ((==) <$> go e1 <*> go e2)

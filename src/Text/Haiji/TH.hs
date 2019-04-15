@@ -129,3 +129,4 @@ eval (Expression expression) = go expression where
   go (ExprDivI e1 e2) = runQ [e| div <$> $(go e1) <*> $(go e2) |]
   go (ExprAdd e1 e2) = runQ [e| (+) <$> $(go e1) <*> $(go e2) |]
   go (ExprSub e1 e2) = runQ [e| (-) <$> $(go e1) <*> $(go e2) |]
+  go (ExprEq e1 e2) = runQ [e| (==) <$> $(go e1) <*> $(go e2) |]
