@@ -39,12 +39,13 @@ type Level8 = S Level7
 
 type LevelMax = Level8
 
-data MulDiv = Mul | DivF | DivI deriving Eq
+data MulDiv = Mul | DivF | DivI | Mod deriving Eq
 
 instance Show MulDiv where
   show Mul = "*"
   show DivF = "/"
   show DivI = "//"
+  show Mod = "%"
 
 data AddSub = Add | Sub deriving Eq
 
@@ -70,6 +71,7 @@ data Expr visibility level where
   ExprMul :: Expr External Level4 -> Expr External Level3 -> Expr External Level4
   ExprDivF :: Expr External Level4 -> Expr External Level3 -> Expr External Level4
   ExprDivI :: Expr External Level4 -> Expr External Level3 -> Expr External Level4
+  ExprMod :: Expr External Level4 -> Expr External Level3 -> Expr External Level4
   ExprInternalAddSub :: Expr Internal Level4 -> [(AddSub, Expr Internal Level4)] -> Expr Internal Level5
   ExprAdd :: Expr External Level5 -> Expr External Level4 -> Expr External Level5
   ExprSub :: Expr External Level5 -> Expr External Level4 -> Expr External Level5
@@ -100,6 +102,7 @@ toExternal (ExprInternalMulDiv e es) = case last es of
   (Mul , e') -> ExprMul  (toExternal (ExprInternalMulDiv e $ init es)) (toExternal e')
   (DivF, e') -> ExprDivF (toExternal (ExprInternalMulDiv e $ init es)) (toExternal e')
   (DivI, e') -> ExprDivI (toExternal (ExprInternalMulDiv e $ init es)) (toExternal e')
+  (Mod , e') -> ExprMod  (toExternal (ExprInternalMulDiv e $ init es)) (toExternal e')
 toExternal (ExprInternalAddSub e []) = ExprLift $ toExternal e
 toExternal (ExprInternalAddSub e es) = case last es of
   (Add, e') -> ExprAdd (toExternal (ExprInternalAddSub e $ init es)) (toExternal e')
@@ -132,6 +135,7 @@ instance Show (Expr visibility phase) where
   show (ExprMul e1 e2) = shows e1 " * " ++ show e2
   show (ExprDivF e1 e2) = shows e1 " / " ++ show e2
   show (ExprDivI e1 e2) = shows e1 " // " ++ show e2
+  show (ExprMod e1 e2) = shows e1 " % " ++ show e2
   show (ExprInternalAddSub e es) = concat $ show e : concat [ [ ' ' : shows op " ", show e' ] | (op, e') <- es ]
   show (ExprAdd e1 e2) = shows e1 " + " ++ show e2
   show (ExprSub e1 e2) = shows e1 " - " ++ show e2
@@ -264,11 +268,16 @@ exprLevel3 = choice [ exprPow
 -- Right 1 // 2 * 3
 -- >>> eval "1*2/3"
 -- Right 1 * 2 / 3
+-- >>> eval "1 * 2 % 3"
+-- Right 1 * 2 % 3
+-- >>> eval "1%2*3"
+-- Right 1 % 2 * 3
 exprMulDiv :: Parser (Expr Internal Level4)
 exprMulDiv = ExprInternalMulDiv <$> exprLevel3 <*> many' ((,) <$> (skipSpace *> op) <*> (skipSpace *> exprLevel3)) where
   op = choice [ string "//" *> return DivI
               , string "/" *> return DivF
               , string "*" *> return Mul
+              , string "%" *> return Mod
               ]
 
 exprLevel4 :: Parser (Expr Internal Level4)

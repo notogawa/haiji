@@ -154,7 +154,13 @@ eval (Expression expression) = go expression where
     v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (//)" return) <$> go e2
     case (floatingOrInteger v1 :: Either Float Integer, floatingOrInteger v2 :: Either Float Integer) of
       (Right l, Right r) -> return $ JSON.Number $ scientific (l `div` r) 0
-      _                  -> error "(**)"
+      _                  -> error "(//)"
+  go (ExprMod e1 e2) = do
+    v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (%)" return) <$> go e1
+    v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (%)" return) <$> go e2
+    case (floatingOrInteger v1 :: Either Float Integer, floatingOrInteger v2 :: Either Float Integer) of
+      (Right l, Right r) -> return $ JSON.Number $ scientific (l `mod` r) 0
+      _                  -> error "(%)"
   go (ExprAdd e1 e2) = do
     v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (/)" return) <$> go e1
     v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (/)" return) <$> go e2
