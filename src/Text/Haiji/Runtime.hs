@@ -144,4 +144,37 @@ eval (Expression expression) = go expression where
     v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (/)" return) <$> go e1
     v2 <- either error id . JSON.parseEither (JSON.withScientific "rhs of (/)" return) <$> go e2
     return $ JSON.Number $ v1 - v2
-  go (ExprEq e1 e2) = JSON.Bool <$> ((==) <$> go e1 <*> go e2)
+  go (ExprEQ e1 e2) = JSON.Bool <$> ((==) <$> go e1 <*> go e2)
+  go (ExprNEQ e1 e2) = JSON.Bool <$> ((/=) <$> go e1 <*> go e2)
+  go (ExprGT e1 e2) = do
+    v1 <- go e1
+    v2 <- go e2
+    case (v1, v2) of
+      (JSON.Number l, JSON.Number r) -> return $ JSON.Bool $ l > r
+      (JSON.String l, JSON.String r) -> return $ JSON.Bool $ l > r
+      (JSON.Bool   l, JSON.Bool   r) -> return $ JSON.Bool $ l > r
+      _ -> error "(>)"
+  go (ExprGE e1 e2) = do
+    v1 <- go e1
+    v2 <- go e2
+    case (v1, v2) of
+      (JSON.Number l, JSON.Number r) -> return $ JSON.Bool $ l >= r
+      (JSON.String l, JSON.String r) -> return $ JSON.Bool $ l >= r
+      (JSON.Bool   l, JSON.Bool   r) -> return $ JSON.Bool $ l >= r
+      _ -> error "(>=)"
+  go (ExprLT e1 e2) = do
+    v1 <- go e1
+    v2 <- go e2
+    case (v1, v2) of
+      (JSON.Number l, JSON.Number r) -> return $ JSON.Bool $ l < r
+      (JSON.String l, JSON.String r) -> return $ JSON.Bool $ l < r
+      (JSON.Bool   l, JSON.Bool   r) -> return $ JSON.Bool $ l < r
+      _ -> error "(<)"
+  go (ExprLE e1 e2) = do
+    v1 <- go e1
+    v2 <- go e2
+    case (v1, v2) of
+      (JSON.Number l, JSON.Number r) -> return $ JSON.Bool $ l <= r
+      (JSON.String l, JSON.String r) -> return $ JSON.Bool $ l <= r
+      (JSON.Bool   l, JSON.Bool   r) -> return $ JSON.Bool $ l <= r
+      _ -> error "(<=)"

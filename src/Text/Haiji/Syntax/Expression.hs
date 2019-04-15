@@ -68,7 +68,12 @@ data Expr visibility level where
   ExprInternalAddSub :: Expr Internal Level4 -> [(AddSub, Expr Internal Level4)] -> Expr Internal Level5
   ExprAdd :: Expr External Level5 -> Expr External Level4 -> Expr External Level5
   ExprSub :: Expr External Level5 -> Expr External Level4 -> Expr External Level5
-  ExprEq :: Expr visibility Level5 -> Expr visibility Level5 -> Expr visibility Level6
+  ExprEQ :: Expr visibility Level5 -> Expr visibility Level5 -> Expr visibility Level6
+  ExprNEQ :: Expr visibility Level5 -> Expr visibility Level5 -> Expr visibility Level6
+  ExprGT :: Expr visibility Level5 -> Expr visibility Level5 -> Expr visibility Level6
+  ExprGE :: Expr visibility Level5 -> Expr visibility Level5 -> Expr visibility Level6
+  ExprLT :: Expr visibility Level5 -> Expr visibility Level5 -> Expr visibility Level6
+  ExprLE :: Expr visibility Level5 -> Expr visibility Level5 -> Expr visibility Level6
 
 toExternal :: Expr Internal level -> Expr External level
 toExternal (ExprLift e) = ExprLift $ toExternal e
@@ -89,7 +94,13 @@ toExternal (ExprInternalAddSub e []) = ExprLift $ toExternal e
 toExternal (ExprInternalAddSub e es) = case last es of
   (Add, e') -> ExprAdd (toExternal (ExprInternalAddSub e $ init es)) (toExternal e')
   (Sub, e') -> ExprSub (toExternal (ExprInternalAddSub e $ init es)) (toExternal e')
-toExternal (ExprEq e1 e2) = ExprEq (toExternal e1) (toExternal e2)
+toExternal (ExprEQ e1 e2) = ExprEQ (toExternal e1) (toExternal e2)
+toExternal (ExprNEQ e1 e2) = ExprNEQ (toExternal e1) (toExternal e2)
+toExternal (ExprGT e1 e2) = ExprGT (toExternal e1) (toExternal e2)
+toExternal (ExprGE e1 e2) = ExprGE (toExternal e1) (toExternal e2)
+toExternal (ExprLT e1 e2) = ExprLT (toExternal e1) (toExternal e2)
+toExternal (ExprLE e1 e2) = ExprLE (toExternal e1) (toExternal e2)
+
 
 deriving instance Eq (Expr visibility level)
 
@@ -110,7 +121,12 @@ instance Show (Expr visibility phase) where
   show (ExprInternalAddSub e es) = concat $ show e : concat [ [ ' ' : shows op " ", show e' ] | (op, e') <- es ]
   show (ExprAdd e1 e2) = shows e1 " + " ++ show e2
   show (ExprSub e1 e2) = shows e1 " - " ++ show e2
-  show (ExprEq e1 e2) = shows e1 " == " ++ show e2
+  show (ExprEQ e1 e2) = shows e1 " == " ++ show e2
+  show (ExprNEQ e1 e2) = shows e1 " != " ++ show e2
+  show (ExprGT e1 e2) = shows e1 " > " ++ show e2
+  show (ExprGE e1 e2) = shows e1 " >= " ++ show e2
+  show (ExprLT e1 e2) = shows e1 " < " ++ show e2
+  show (ExprLE e1 e2) = shows e1 " <= " ++ show e2
 
 -- |
 --
@@ -240,11 +256,85 @@ exprLevel5 :: Parser (Expr Internal Level5)
 exprLevel5 = choice [ exprAddSub
                     ]
 
-exprEq :: Parser (Expr Internal Level6)
-exprEq = ExprEq <$> exprLevel5 <*> (skipSpace *> string "==" *> skipSpace *> exprLevel5)
+-- |
+--
+-- >>> let eval = left (const "parse error") . parseOnly exprEQ
+-- >>> eval "1==1"
+-- Right 1 == 1
+-- >>> eval "1== 1"
+-- Right 1 == 1
+-- >>> eval "1 ==1"
+-- Right 1 == 1
+exprEQ :: Parser (Expr Internal Level6)
+exprEQ = ExprEQ <$> exprLevel5 <*> (skipSpace *> string "==" *> skipSpace *> exprLevel5)
 
-exprLevel6 :: Parser (Expr Internal Level6)
-exprLevel6 = choice [ exprEq
+-- |
+--
+-- >>> let eval = left (const "parse error") . parseOnly exprNEQ
+-- >>> eval "1!=1"
+-- Right 1 != 1
+-- >>> eval "1!= 1"
+-- Right 1 != 1
+-- >>> eval "1 !=1"
+-- Right 1 != 1
+exprNEQ :: Parser (Expr Internal Level6)
+exprNEQ = ExprNEQ <$> exprLevel5 <*> (skipSpace *> string "!=" *> skipSpace *> exprLevel5)
+
+-- |
+--
+-- >>> let eval = left (const "parse error") . parseOnly exprGT
+-- >>> eval "1>1"
+-- Right 1 > 1
+-- >>> eval "1> 1"
+-- Right 1 > 1
+-- >>> eval "1 >1"
+-- Right 1 > 1
+exprGT :: Parser (Expr Internal Level6)
+exprGT = ExprGT <$> exprLevel5 <*> (skipSpace *> string ">" *> skipSpace *> exprLevel5)
+
+-- |
+--
+-- >>> let eval = left (const "parse error") . parseOnly exprGE
+-- >>> eval "1>=1"
+-- Right 1 >= 1
+-- >>> eval "1>= 1"
+-- Right 1 >= 1
+-- >>> eval "1 >=1"
+-- Right 1 >= 1
+exprGE :: Parser (Expr Internal Level6)
+exprGE = ExprGE <$> exprLevel5 <*> (skipSpace *> string ">=" *> skipSpace *> exprLevel5)
+
+-- |
+--
+-- >>> let eval = left (const "parse error") . parseOnly exprLT
+-- >>> eval "1<1"
+-- Right 1 < 1
+-- >>> eval "1< 1"
+-- Right 1 < 1
+-- >>> eval "1 <1"
+-- Right 1 < 1
+exprLT :: Parser (Expr Internal Level6)
+exprLT = ExprLT <$> exprLevel5 <*> (skipSpace *> string "<" *> skipSpace *> exprLevel5)
+
+-- |
+--
+-- >>> let eval = left (const "parse error") . parseOnly exprLE
+-- >>> eval "1<=1"
+-- Right 1 <= 1
+-- >>> eval "1<= 1"
+-- Right 1 <= 1
+-- >>> eval "1 <=1"
+-- Right 1 <= 1
+exprLE :: Parser (Expr Internal Level6)
+exprLE = ExprLE <$> exprLevel5 <*> (skipSpace *> string "<=" *> skipSpace *> exprLevel5)
+
+exprLevel6 :: Parser (Expr  Internal Level6)
+exprLevel6 = choice [ exprEQ
+                    , exprNEQ
+                    , exprGE
+                    , exprGT
+                    , exprLE
+                    , exprLT
                     , ExprLift <$> exprLevel5
                     ]
 
