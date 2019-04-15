@@ -122,14 +122,14 @@ case_variables = do
              [key|F__o_o__|] ("include '_'" :: String) `merge`
              [key|F1a2b3c|] ("include num" :: String)
 
-case_filter :: Assertion
-case_filter = do
-  expected <- jinja2 "test/filter.tmpl" dict
-  tmpl <- readTemplateFile def "test/filter.tmpl"
+case_range :: Assertion
+case_range = do
+  expected <- jinja2 "test/range.tmpl" dict
+  tmpl <- readTemplateFile def "test/range.tmpl"
   expected @=? render tmpl (toJSON dict)
-  expected @=? render $(haijiFile def "test/filter.tmpl") dict
+  expected @=? render $(haijiFile def "test/range.tmpl") dict
     where
-      dict = [key|value|] ((-1) :: Int) `merge`
+      dict = [key|value|] (5 :: Int) `merge`
              [key|array|] ([1,2,3] :: [Int])
 
 case_arith :: Assertion

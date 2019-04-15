@@ -109,6 +109,25 @@ eval (Expression expression) = go expression where
   go (ExprBooleanLiteral b) = return $ JSON.Bool b
   go (ExprVariable v) = either error id . JSON.parseEither (JSON.withObject (show v) (JSON..: (T.pack $ show v))) <$> ask
   go (ExprParen e) = go e
+  go (ExprRange [stop]) = do
+    sstop <- either error id . JSON.parseEither (JSON.withScientific "range" return) <$> go stop
+    case floatingOrInteger sstop :: Either Float Integer of
+      (Right istop) -> return $ JSON.Array $ V.fromList $ map (JSON.Number . flip scientific 0) [0..istop-1]
+      _             -> error "range"
+  go (ExprRange [start, stop]) = do
+    sstart <- either error id . JSON.parseEither (JSON.withScientific "range" return) <$> go start
+    sstop <- either error id . JSON.parseEither (JSON.withScientific "range" return) <$> go stop
+    case (floatingOrInteger sstart :: Either Float Integer, floatingOrInteger sstop :: Either Float Integer) of
+      (Right istart, Right istop) -> return $ JSON.Array $ V.fromList $ map (JSON.Number . flip scientific 0) [istart..istop-1]
+      _             -> error "range"
+  go (ExprRange [start, stop, step]) = do
+    sstart <- either error id . JSON.parseEither (JSON.withScientific "range" return) <$> go start
+    sstop <- either error id . JSON.parseEither (JSON.withScientific "range" return) <$> go stop
+    sstep <- either error id . JSON.parseEither (JSON.withScientific "range" return) <$> go step
+    case (floatingOrInteger sstart :: Either Float Integer, floatingOrInteger sstop :: Either Float Integer, floatingOrInteger sstep :: Either Float Integer) of
+      (Right istart, Right istop, Right istep) -> return $ JSON.Array $ V.fromList $ map (JSON.Number . flip scientific 0) [istart,istart+istep..istop-1]
+      _             -> error "range"
+  go (ExprRange _) = error "unreachable"
   go (ExprAttributed e []) = go e
   go (ExprAttributed e attrs) = either error id . JSON.parseEither (JSON.withObject (show $ last attrs) (JSON..: (T.pack $ show $ last attrs))) <$> go (ExprAttributed e $ init attrs)
   go (ExprFiltered e []) = go e

@@ -15,6 +15,8 @@ import Prelude hiding (filter)
 import Control.Applicative
 #endif
 import Data.Attoparsec.Text
+import Data.Bool
+import Data.List hiding (filter)
 import Data.Scientific
 import Text.Haiji.Syntax.Identifier
 import Text.Haiji.Syntax.Filter
@@ -59,6 +61,7 @@ data Expr visibility level where
   ExprBooleanLiteral :: Bool -> Expr visibility Level0
   ExprVariable :: Identifier -> Expr visibility Level0
   ExprParen :: Expr visibility LevelMax -> Expr visibility Level0
+  ExprRange :: [Expr visibility LevelMax] -> Expr visibility Level0
   ExprAttributed :: Expr visibility Level0 -> [Identifier] -> Expr visibility Level1
   ExprFiltered :: Expr visibility Level1 -> [Filter] -> Expr visibility Level2
   ExprInternalPow :: Expr Internal Level2 -> [Expr Internal Level2] -> Expr Internal Level3
@@ -87,6 +90,7 @@ toExternal (ExprIntegerLiteral n) = ExprIntegerLiteral n
 toExternal (ExprBooleanLiteral b) = ExprBooleanLiteral b
 toExternal (ExprVariable i) = ExprVariable i
 toExternal (ExprParen e) = ExprParen $ toExternal e
+toExternal (ExprRange args) = ExprRange $ map toExternal args
 toExternal (ExprAttributed e attrs) = ExprAttributed (toExternal e) attrs
 toExternal (ExprFiltered e filters) = ExprFiltered (toExternal e) filters
 toExternal (ExprInternalPow e []) = ExprLift $ toExternal e
@@ -119,9 +123,10 @@ instance Show (Expr visibility phase) where
   show (ExprBooleanLiteral b) = if b then "true" else "false"
   show (ExprVariable v) = show v
   show (ExprParen e) = '(' : shows e ")"
+  show (ExprRange args) = "range(" ++ intercalate ", " [ show e | e <- args ] ++ ")"
   show (ExprAttributed e attrs) = shows e $ concat [ '.' : show a | a <- attrs ]
   show (ExprFiltered v filters) = shows v $ filters >>= show
-  show (ExprInternalPow e ps) = concat $ show e : concat [ [ " ** ", show p ] | p <- ps ]
+  show (ExprInternalPow e es) = intercalate " ** " $ map show $ e:es
   show (ExprPow e1 e2) = shows e1 " ** " ++ show e2
   show (ExprInternalMulDiv e es) = concat $ show e : concat [ [ ' ' : shows op " ", show e' ] | (op, e') <- es ]
   show (ExprMul e1 e2) = shows e1 " * " ++ show e2
@@ -136,9 +141,9 @@ instance Show (Expr visibility phase) where
   show (ExprGE e1 e2) = shows e1 " >= " ++ show e2
   show (ExprLT e1 e2) = shows e1 " < " ++ show e2
   show (ExprLE e1 e2) = shows e1 " <= " ++ show e2
-  show (ExprInternalAnd e es) = concat $ show e : concat [ [ " and ", show e' ] | e' <- es ]
+  show (ExprInternalAnd e es) = intercalate " and " $ map show $ e:es
   show (ExprAnd e1 e2) = shows e1 " and " ++ show e2
-  show (ExprInternalOr e es) = concat $ show e : concat [ [ " or ", show e' ] | e' <- es ]
+  show (ExprInternalOr e es) = intercalate " or " $ map show $ e:es
   show (ExprOr e1 e2) = shows e1 " or " ++ show e2
 
 -- |
@@ -178,11 +183,31 @@ exprVariable = ExprVariable <$> identifier
 -- >>> eval "( foo)"
 -- Right (foo)
 exprParen :: Parser (Expr Internal Level0)
-exprParen = ExprParen <$> (char '(' *> skipSpace *> exprLevel8 <* skipSpace <* char ')')
+exprParen = ExprParen <$> (char '(' *> skipSpace *> exprLevelMax <* skipSpace <* char ')')
+
+-- |
+--
+-- >>> let eval = left (const "parse error") . parseOnly exprRange
+-- >>> eval "range(1)"
+-- Right range(1)
+-- >>> eval "range (1)"
+-- Right range(1)
+-- >>> eval "range(1, 2)"
+-- Right range(1, 2)
+-- >>> eval "range (1,2)"
+-- Right range(1, 2)
+-- >>> eval "range(1 ,2 , 3)"
+-- Right range(1, 2, 3)
+exprRange :: Parser (Expr Internal Level0)
+exprRange = ExprRange <$> args where
+  args = do
+    es <- string "range" *> skipSpace *> char '(' *> skipSpace *> (exprLevelMax `sepBy1` (skipSpace *> char ',' *> skipSpace)) <* skipSpace <* char ')'
+    bool (fail "too many args") (return es) $ length es < 4
 
 exprLevel0 :: Parser (Expr Internal Level0)
 exprLevel0 = choice [ exprIntegerLiteral
                     , exprBooleanLiteral
+                    , exprRange
                     , exprVariable
                     , exprParen
                     ]
@@ -377,6 +402,9 @@ exprLevel8 = choice [ exprOr
                     , ExprLift <$> exprLevel7
                     ]
 
+exprLevelMax :: Parser (Expr Internal LevelMax)
+exprLevelMax = exprLevel8
+
 newtype Expression = Expression (Expr External LevelMax) deriving Eq
 
 instance Show Expression where
@@ -421,4 +449,4 @@ instance Show Expression where
 -- Right foo.bar.baz
 --
 expression :: Parser Expression
-expression = Expression . toExternal <$> exprLevel8
+expression = Expression . toExternal <$> exprLevelMax
