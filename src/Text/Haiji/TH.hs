@@ -135,3 +135,5 @@ eval (Expression expression) = go expression where
   go (ExprGE e1 e2) = runQ [e| (>=) <$> $(go e1) <*> $(go e2) |]
   go (ExprLT e1 e2) = runQ [e| (<) <$> $(go e1) <*> $(go e2) |]
   go (ExprLE e1 e2) = runQ [e| (<=) <$> $(go e1) <*> $(go e2) |]
+  go (ExprAnd e1 e2) = runQ [e| (&&) <$> $(go e1) <*> $(go e2) |]
+  go (ExprOr e1 e2) = runQ [e| (||) <$> $(go e1) <*> $(go e2) |]

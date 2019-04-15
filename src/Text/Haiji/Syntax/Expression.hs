@@ -32,8 +32,10 @@ type Level3 = S Level2
 type Level4 = S Level3
 type Level5 = S Level4
 type Level6 = S Level5
+type Level7 = S Level6
+type Level8 = S Level7
 
-type LevelMax = Level6
+type LevelMax = Level8
 
 data MulDiv = Mul | DivF | DivI deriving Eq
 
@@ -74,6 +76,10 @@ data Expr visibility level where
   ExprGE :: Expr visibility Level5 -> Expr visibility Level5 -> Expr visibility Level6
   ExprLT :: Expr visibility Level5 -> Expr visibility Level5 -> Expr visibility Level6
   ExprLE :: Expr visibility Level5 -> Expr visibility Level5 -> Expr visibility Level6
+  ExprInternalAnd :: Expr Internal Level6 -> [Expr Internal Level6] -> Expr Internal Level7
+  ExprAnd :: Expr External Level7 -> Expr External Level6 -> Expr External Level7
+  ExprInternalOr :: Expr Internal Level7 -> [Expr Internal Level7] -> Expr Internal Level8
+  ExprOr :: Expr External Level8 -> Expr External Level7 -> Expr External Level8
 
 toExternal :: Expr Internal level -> Expr External level
 toExternal (ExprLift e) = ExprLift $ toExternal e
@@ -100,7 +106,10 @@ toExternal (ExprGT e1 e2) = ExprGT (toExternal e1) (toExternal e2)
 toExternal (ExprGE e1 e2) = ExprGE (toExternal e1) (toExternal e2)
 toExternal (ExprLT e1 e2) = ExprLT (toExternal e1) (toExternal e2)
 toExternal (ExprLE e1 e2) = ExprLE (toExternal e1) (toExternal e2)
-
+toExternal (ExprInternalAnd e []) = ExprLift $ toExternal e
+toExternal (ExprInternalAnd e es) = ExprAnd (toExternal (ExprInternalAnd e $ init es)) (toExternal $ last es)
+toExternal (ExprInternalOr e []) = ExprLift $ toExternal e
+toExternal (ExprInternalOr e es) = ExprOr (toExternal (ExprInternalOr e $ init es)) (toExternal $ last es)
 
 deriving instance Eq (Expr visibility level)
 
@@ -127,6 +136,10 @@ instance Show (Expr visibility phase) where
   show (ExprGE e1 e2) = shows e1 " >= " ++ show e2
   show (ExprLT e1 e2) = shows e1 " < " ++ show e2
   show (ExprLE e1 e2) = shows e1 " <= " ++ show e2
+  show (ExprInternalAnd e es) = concat $ show e : concat [ [ " and ", show e' ] | e' <- es ]
+  show (ExprAnd e1 e2) = shows e1 " and " ++ show e2
+  show (ExprInternalOr e es) = concat $ show e : concat [ [ " or ", show e' ] | e' <- es ]
+  show (ExprOr e1 e2) = shows e1 " or " ++ show e2
 
 -- |
 --
@@ -165,7 +178,7 @@ exprVariable = ExprVariable <$> identifier
 -- >>> eval "( foo)"
 -- Right (foo)
 exprParen :: Parser (Expr Internal Level0)
-exprParen = ExprParen <$> (char '(' *> skipSpace *> exprLevel6 <* skipSpace <* char ')')
+exprParen = ExprParen <$> (char '(' *> skipSpace *> exprLevel8 <* skipSpace <* char ')')
 
 exprLevel0 :: Parser (Expr Internal Level0)
 exprLevel0 = choice [ exprIntegerLiteral
@@ -328,7 +341,7 @@ exprLT = ExprLT <$> exprLevel5 <*> (skipSpace *> string "<" *> skipSpace *> expr
 exprLE :: Parser (Expr Internal Level6)
 exprLE = ExprLE <$> exprLevel5 <*> (skipSpace *> string "<=" *> skipSpace *> exprLevel5)
 
-exprLevel6 :: Parser (Expr  Internal Level6)
+exprLevel6 :: Parser (Expr Internal Level6)
 exprLevel6 = choice [ exprEQ
                     , exprNEQ
                     , exprGE
@@ -338,6 +351,31 @@ exprLevel6 = choice [ exprEQ
                     , ExprLift <$> exprLevel5
                     ]
 
+-- |
+--
+-- >>> let eval = left (const "parse error") . parseOnly exprAnd
+-- >>> eval "true and false"
+-- Right true and false
+exprAnd :: Parser (Expr Internal Level7)
+exprAnd = ExprInternalAnd <$> exprLevel6 <*> many' (skipSpace *> string "and" *> skipSpace *> exprLevel6)
+
+exprLevel7 :: Parser (Expr Internal Level7)
+exprLevel7 = choice [ exprAnd
+                    , ExprLift <$> exprLevel6
+                    ]
+
+-- |
+--
+-- >>> let eval = left (const "parse error") . parseOnly exprOr
+-- >>> eval "true or false"
+-- Right true or false
+exprOr :: Parser (Expr Internal Level8)
+exprOr = ExprInternalOr <$> exprLevel7 <*> many' (skipSpace *> string "or" *> skipSpace *> exprLevel7)
+
+exprLevel8 :: Parser (Expr Internal Level8)
+exprLevel8 = choice [ exprOr
+                    , ExprLift <$> exprLevel7
+                    ]
 
 newtype Expression = Expression (Expr External LevelMax) deriving Eq
 
@@ -383,4 +421,4 @@ instance Show Expression where
 -- Right foo.bar.baz
 --
 expression :: Parser Expression
-expression = Expression . toExternal <$> exprLevel6
+expression = Expression . toExternal <$> exprLevel8

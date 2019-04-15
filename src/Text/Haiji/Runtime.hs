@@ -178,3 +178,15 @@ eval (Expression expression) = go expression where
       (JSON.String l, JSON.String r) -> return $ JSON.Bool $ l <= r
       (JSON.Bool   l, JSON.Bool   r) -> return $ JSON.Bool $ l <= r
       _ -> error "(<=)"
+  go (ExprAnd e1 e2) = do
+    v1 <- go e1
+    v2 <- go e2
+    case (v1, v2) of
+      (JSON.Bool   l, JSON.Bool   r) -> return $ JSON.Bool $ l && r
+      _ -> error "(<=)"
+  go (ExprOr e1 e2) = do
+    v1 <- go e1
+    v2 <- go e2
+    case (v1, v2) of
+      (JSON.Bool   l, JSON.Bool   r) -> return $ JSON.Bool $ l || r
+      _ -> error "(<=)"
