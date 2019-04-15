@@ -111,7 +111,8 @@ loopVariables len ix = Dict $ M.fromList [ ("first", toDyn (ix == 0))
 
 eval :: Quasi q => Expression -> q Exp
 eval (Expression expression) = go expression where
-  go :: Quasi q => Expr level -> q Exp
+  go :: Quasi q => Expr External level -> q Exp
+  go (ExprLift e) = go e
   go (ExprIntegerLiteral n) = runQ [e| return (n :: Int) |]
   go (ExprBooleanLiteral b) = runQ [e| return b|]
   go (ExprVariable v) = runQ [e| retrieve <$> ask <*> return (Key :: Key $(litT . strTyLit $ show v)) |]
@@ -122,14 +123,9 @@ eval (Expression expression) = go expression where
   go (ExprFiltered e filters) = runQ [e| $(applyFilter (last filters) $ ExprFiltered e $ init filters) |] where
     applyFilter FilterAbs e' = runQ [e| abs <$> $(go e') |]
     applyFilter FilterLength e' = runQ [e| length <$> $(go e') |]
-  go (ExprPow e []) = go e
-  go (ExprPow e es) = runQ [e| (^) <$> $(go $ ExprPow e $ init es) <*> $(go $ last es) |]
-  go (ExprMulDiv e []) = go e
-  go (ExprMulDiv e es) = case last es of
-    (Mul , e') -> runQ [e| (*) <$> $(go $ ExprMulDiv e $ init es) <*> $(go e') |]
-    (DivF, e') -> runQ [e| (/) <$> $(go $ ExprMulDiv e $ init es) <*> $(go e') |]
-    (DivI, e') -> runQ [e| div <$> $(go $ ExprMulDiv e $ init es) <*> $(go e') |]
-  go (ExprAddSub e []) = go e
-  go (ExprAddSub e es) = case last es of
-    (Add, e') -> runQ [e| (+) <$> $(go $ ExprAddSub e $ init es) <*> $(go e') |]
-    (Sub, e') -> runQ [e| (-) <$> $(go $ ExprAddSub e $ init es) <*> $(go e') |]
+  go (ExprPow e1 e2) = runQ [e| (^) <$> $(go e1) <*> $(go e2) |]
+  go (ExprMul e1 e2) = runQ [e| (*) <$> $(go e1) <*> $(go e2) |]
+  go (ExprDivF e1 e2) = runQ [e| (/) <$> $(go e1) <*> $(go e2) |]
+  go (ExprDivI e1 e2) = runQ [e| div <$> $(go e1) <*> $(go e2) |]
+  go (ExprAdd e1 e2) = runQ [e| (+) <$> $(go e1) <*> $(go e2) |]
+  go (ExprSub e1 e2) = runQ [e| (-) <$> $(go e1) <*> $(go e2) |]

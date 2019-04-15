@@ -1,8 +1,7 @@
 module Text.Haiji.Syntax
        ( Expression(..)
        , Expr(..)
-       , MulDiv(..)
-       , AddSub(..)
+       , External
        , Filter(..)
        , Identifier
        , AST(..)
