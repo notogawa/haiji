@@ -159,7 +159,10 @@ case_comparison = do
   expected @=? render $(haijiFile def "test/comparison.tmpl") dict
     where
       dict = [key|value|] ((1) :: Integer) `merge` -- There exists jinja2 bug (https://github.com/pallets/jinja/issues/755)
-             [key|array|] ([1,2,3] :: [Integer])
+             [key|array|] ([1,2,3] :: [Integer]) `merge`
+             [key|text|] ("text" :: T.Text)
+
+
 
 case_logic :: Assertion
 case_logic = do
