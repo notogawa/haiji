@@ -114,7 +114,8 @@ eval (Expression expression) = go expression where
   go :: Quasi q => Expr External level -> q Exp
   go (ExprLift e) = go e
   go (ExprIntegerLiteral n) = runQ [e| return (n :: Int) |]
-  go (ExprBooleanLiteral b) = runQ [e| return b|]
+  go (ExprStringLiteral s) = let x = unwrap s in runQ [e| return (x :: T.Text) |]
+  go (ExprBooleanLiteral b) = runQ [e| return b |]
   go (ExprVariable v) = runQ [e| retrieve <$> ask <*> return (Key :: Key $(litT . strTyLit $ show v)) |]
   go (ExprParen e) = go e
   go (ExprRange [stop]) = runQ [e| enumFromTo 0 <$> (pred <$> $(go stop)) |]

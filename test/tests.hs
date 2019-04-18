@@ -122,6 +122,15 @@ case_variables = do
              [key|F__o_o__|] ("include '_'" :: String) `merge`
              [key|F1a2b3c|] ("include num" :: String)
 
+case_string :: Assertion
+case_string = do
+  expected <- jinja2 "test/string.tmpl" dict
+  tmpl <- readTemplateFile def "test/string.tmpl"
+  expected @=? render tmpl (toJSON dict)
+  expected @=? render $(haijiFile def "test/string.tmpl") dict
+    where
+      dict = [key|test|] ("test" :: T.Text)
+
 case_range :: Assertion
 case_range = do
   expected <- jinja2 "test/range.tmpl" dict

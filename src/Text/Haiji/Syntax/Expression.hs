@@ -20,6 +20,7 @@ import Data.List hiding (filter)
 import Data.Scientific
 import Text.Haiji.Syntax.Identifier
 import Text.Haiji.Syntax.Filter
+import Text.Haiji.Syntax.Literal
 
 -- $setup
 -- >>> import Control.Arrow (left)
@@ -59,6 +60,7 @@ data External
 data Expr visibility level where
   ExprLift :: Expr visibility lv -> Expr visibility (S lv)
   ExprIntegerLiteral :: Int -> Expr visibility Level0
+  ExprStringLiteral :: StringLiteral -> Expr visibility Level0
   ExprBooleanLiteral :: Bool -> Expr visibility Level0
   ExprVariable :: Identifier -> Expr visibility Level0
   ExprParen :: Expr visibility LevelMax -> Expr visibility Level0
@@ -89,6 +91,7 @@ data Expr visibility level where
 toExternal :: Expr Internal level -> Expr External level
 toExternal (ExprLift e) = ExprLift $ toExternal e
 toExternal (ExprIntegerLiteral n) = ExprIntegerLiteral n
+toExternal (ExprStringLiteral n) = ExprStringLiteral n
 toExternal (ExprBooleanLiteral b) = ExprBooleanLiteral b
 toExternal (ExprVariable i) = ExprVariable i
 toExternal (ExprParen e) = ExprParen $ toExternal e
@@ -123,6 +126,7 @@ deriving instance Eq (Expr visibility level)
 instance Show (Expr visibility phase) where
   show (ExprLift e) = show e
   show (ExprIntegerLiteral n) = show n
+  show (ExprStringLiteral n) = show n
   show (ExprBooleanLiteral b) = if b then "true" else "false"
   show (ExprVariable v) = show v
   show (ExprParen e) = '(' : shows e ")"
@@ -159,6 +163,16 @@ instance Show (Expr visibility phase) where
 -- Right 2
 exprIntegerLiteral :: Parser (Expr Internal Level0)
 exprIntegerLiteral = either (error . (show :: Double -> String)) ExprIntegerLiteral . floatingOrInteger <$> Data.Attoparsec.Text.scientific
+
+-- |
+--
+-- >>> let eval = left (const "parse error") . parseOnly exprStringLiteral
+-- >>> eval "'test'"
+-- Right 'test'
+-- >>> eval "\"test\""
+-- Right "test"
+exprStringLiteral :: Parser (Expr Internal Level0)
+exprStringLiteral = ExprStringLiteral <$> stringLiteral
 
 -- |
 --
@@ -210,6 +224,7 @@ exprRange = ExprRange <$> args where
 
 exprLevel0 :: Parser (Expr Internal Level0)
 exprLevel0 = choice [ exprIntegerLiteral
+                    , exprStringLiteral
                     , exprBooleanLiteral
                     , exprRange
                     , exprVariable
