@@ -72,7 +72,7 @@ haijiAST  env  parentBlock  children (Condition p ts fs) =
 haijiAST  env  parentBlock  children (Foreach k xs loopBody elseBody) =
   runQ [e| do dicts <- $(eval xs)
               p <- ask
-              let len = length dicts
+              let len = toInteger $ length dicts
               if 0 < len
               then return $ LT.concat
                             [ runReader $(haijiASTs env parentBlock children loopBody)
@@ -99,7 +99,7 @@ haijiAST  env  parentBlock  children (Set lhs rhs scopes) =
                 (p `merge` singleton val (Key :: Key $(litT . strTyLit $ show lhs)))
          |]
 
-loopVariables :: Int -> Int -> Dict '["first" :-> Bool, "index" :-> Int, "index0" :-> Int, "last" :-> Bool, "length" :-> Int, "revindex" :-> Int, "revindex0" :-> Int]
+loopVariables :: Integer -> Integer -> Dict '["first" :-> Bool, "index" :-> Integer, "index0" :-> Integer, "last" :-> Bool, "length" :-> Integer, "revindex" :-> Integer, "revindex0" :-> Integer]
 loopVariables len ix = Dict $ M.fromList [ ("first", toDyn (ix == 0))
                                          , ("index", toDyn (ix + 1))
                                          , ("index0", toDyn ix)
@@ -113,21 +113,21 @@ eval :: Quasi q => Expression -> q Exp
 eval (Expression expression) = go expression where
   go :: Quasi q => Expr External level -> q Exp
   go (ExprLift e) = go e
-  go (ExprIntegerLiteral n) = runQ [e| return (n :: Int) |]
+  go (ExprIntegerLiteral n) = runQ [e| return (n :: Integer) |]
   go (ExprStringLiteral s) = let x = unwrap s in runQ [e| return (x :: T.Text) |]
   go (ExprBooleanLiteral b) = runQ [e| return b |]
   go (ExprVariable v) = runQ [e| retrieve <$> ask <*> return (Key :: Key $(litT . strTyLit $ show v)) |]
   go (ExprParen e) = go e
-  go (ExprRange [stop]) = runQ [e| enumFromTo 0 <$> (pred <$> $(go stop)) |]
-  go (ExprRange [start, stop]) = runQ [e| enumFromTo <$> $(go start) <*> (pred <$> $(go stop)) |]
-  go (ExprRange [start, stop, step]) = runQ [e| (\a b c -> [a,a+c..b]) <$> $(go start) <*> (pred <$> $(go stop)) <*> $(go step) |]
+  go (ExprRange [stop]) = runQ [e| (\b -> [0..b-1]) <$> $(go stop) |]
+  go (ExprRange [start, stop]) = runQ [e| (\a b -> [a..b-1]) <$> $(go start) <*> $(go stop) |]
+  go (ExprRange [start, stop, step]) = runQ [e| (\a b c -> [a,a+c..b-1]) <$> $(go start) <*> $(go stop) <*> $(go step) |]
   go (ExprRange _) = error "unreachable"
   go (ExprAttributed e []) = go e
   go (ExprAttributed e attrs) = runQ [e| retrieve <$> $(go $ ExprAttributed e $ init attrs) <*> return (Key :: Key $(litT . strTyLit $ show $ last attrs)) |]
   go (ExprFiltered e []) = go e
   go (ExprFiltered e filters) = runQ [e| $(applyFilter (last filters) $ ExprFiltered e $ init filters) |] where
     applyFilter FilterAbs e' = runQ [e| abs <$> $(go e') |]
-    applyFilter FilterLength e' = runQ [e| length <$> $(go e') |]
+    applyFilter FilterLength e' = runQ [e| toInteger . length <$> $(go e') |]
   go (ExprPow e1 e2) = runQ [e| (^) <$> $(go e1) <*> $(go e2) |]
   go (ExprMul e1 e2) = runQ [e| (*) <$> $(go e1) <*> $(go e2) |]
   go (ExprDivF e1 e2) = runQ [e| (/) <$> $(go e1) <*> $(go e2) |]

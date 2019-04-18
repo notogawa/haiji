@@ -65,7 +65,7 @@ haijiAST  env  parentBlock  children (Foreach k xs loopBody elseBody) =
      case arr of
        JSON.Array dicts -> do
          p <- ask
-         let len = V.length dicts
+         let len = toInteger $ V.length dicts
          if 0 < len
          then return $ LT.concat
               [ runReader (haijiASTs env parentBlock children loopBody)
@@ -91,7 +91,7 @@ haijiAST  env  parentBlock  children (Set lhs rhs scopes) =
      return $ runReader (haijiASTs env parentBlock children scopes)
        (let JSON.Object obj = p in  JSON.Object $ HM.insert (T.pack $ show lhs) val obj)
 
-loopVariables :: Int -> Int -> JSON.Value
+loopVariables :: Integer -> Integer -> JSON.Value
 loopVariables len ix = JSON.object [ "first"     JSON..= (ix == 0)
                                    , "index"     JSON..= (ix + 1)
                                    , "index0"    JSON..= ix
@@ -105,7 +105,7 @@ eval :: Expression -> Reader JSON.Value JSON.Value
 eval (Expression expression) = go expression where
   go :: Expr External level -> Reader JSON.Value JSON.Value
   go (ExprLift e) = go e
-  go (ExprIntegerLiteral n) = return $ JSON.Number $ scientific (toEnum n) 0
+  go (ExprIntegerLiteral n) = return $ JSON.Number $ scientific n 0
   go (ExprStringLiteral s) = return $ JSON.String $ T.pack $ unwrap s
   go (ExprBooleanLiteral b) = return $ JSON.Bool b
   go (ExprVariable v) = either error id . JSON.parseEither (JSON.withObject (show v) (JSON..: (T.pack $ show v))) <$> ask
@@ -134,7 +134,7 @@ eval (Expression expression) = go expression where
   go (ExprFiltered e []) = go e
   go (ExprFiltered e filters) = applyFilter (last filters) $ ExprFiltered e $ init filters where
     applyFilter FilterAbs e' = either error id . JSON.parseEither (JSON.withScientific "abs" (return . JSON.Number . abs)) <$> go e'
-    applyFilter FilterLength e' = either error id . JSON.parseEither (JSON.withArray "length" (return . JSON.Number . flip scientific 0 . toEnum . V.length)) <$> go e'
+    applyFilter FilterLength e' = either error id . JSON.parseEither (JSON.withArray "length" (return . JSON.Number . flip scientific 0 . toInteger . V.length)) <$> go e'
 
   go (ExprPow e1 e2) = do
     v1 <- either error id . JSON.parseEither (JSON.withScientific "lhs of (**)" return) <$> go e1
