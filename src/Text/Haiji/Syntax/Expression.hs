@@ -59,7 +59,7 @@ data External
 
 data Expr visibility level where
   ExprLift :: Expr visibility lv -> Expr visibility (S lv)
-  ExprIntegerLiteral :: Int -> Expr visibility Level0
+  ExprIntegerLiteral :: Integer -> Expr visibility Level0
   ExprStringLiteral :: StringLiteral -> Expr visibility Level0
   ExprBooleanLiteral :: Bool -> Expr visibility Level0
   ExprVariable :: Identifier -> Expr visibility Level0

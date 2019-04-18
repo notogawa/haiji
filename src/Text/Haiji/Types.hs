@@ -53,9 +53,6 @@ render :: Template dict -> dict -> LT.Text
 render = runReader . unTmpl
 
 class ToLT a where toLT :: a -> LT.Text
-instance ToLT String  where toLT = LT.pack
 instance ToLT T.Text  where toLT = LT.fromStrict
-instance ToLT LT.Text where toLT = id
-instance ToLT Int     where toLT = toLT . show
-instance ToLT Integer where toLT = toLT . show
-instance ToLT Bool    where toLT = toLT . show
+instance ToLT Integer where toLT = LT.pack . show
+instance ToLT Bool    where toLT = LT.pack . show

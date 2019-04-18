@@ -56,22 +56,22 @@ case_example = do
     where
 #if MIN_VERSION_base(4,9,0)
       dict = toDict @"a_variable" ("Hello,World!" :: T.Text) `merge`
-             toDict @"navigation" [ toDict @"caption" ("A" :: LT.Text) `merge`
-                                    toDict @"href" ("content/a.html" :: String)
+             toDict @"navigation" [ toDict @"caption" ("A" :: T.Text) `merge`
+                                    toDict @"href" ("content/a.html" :: T.Text)
                                   , toDict @"caption" "B" `merge`
                                     toDict @"href" "content/b.html"
                                   ] `merge`
-             toDict @"foo" (1 :: Int) `merge`
-             toDict @"bar" ("" :: String)
+             toDict @"foo" (1 :: Integer) `merge`
+             toDict @"bar" ("" :: T.Text)
 #else
       dict = [key|a_variable|] ("Hello,World!" :: T.Text) `merge`
-             [key|navigation|] [ [key|caption|] ("A" :: LT.Text) `merge`
-                                 [key|href|] ("content/a.html" :: String)
+             [key|navigation|] [ [key|caption|] ("A" :: T.Text) `merge`
+                                 [key|href|] ("content/a.html" :: T.Text)
                                , [key|caption|] "B" `merge`
                                  [key|href|] "content/b.html"
                                ] `merge`
-             [key|foo|] (1 :: Int) `merge`
-             [key|bar|] ("" :: String)
+             [key|foo|] (1 :: Integer) `merge`
+             [key|bar|] ("" :: T.Text)
 #endif
 
 case_empty :: Assertion
@@ -117,10 +117,10 @@ case_variables = do
   expected @=? render $(haijiFile def "test/variables.tmpl") dict
     where
       dict = [key|foo|] ("normal" :: T.Text) `merge`
-             [key|_foo|] ("start '_'" :: LT.Text) `merge`
+             [key|_foo|] ("start '_'" :: T.Text) `merge`
              [key|Foo|] ("start upper case" :: T.Text) `merge`
-             [key|F__o_o__|] ("include '_'" :: String) `merge`
-             [key|F1a2b3c|] ("include num" :: String)
+             [key|F__o_o__|] ("include '_'" :: T.Text) `merge`
+             [key|F1a2b3c|] ("include num" :: T.Text)
 
 case_string :: Assertion
 case_string = do
@@ -138,8 +138,8 @@ case_range = do
   expected @=? render tmpl (toJSON dict)
   expected @=? render $(haijiFile def "test/range.tmpl") dict
     where
-      dict = [key|value|] (5 :: Int) `merge`
-             [key|array|] ([1,2,3] :: [Int])
+      dict = [key|value|] (5 :: Integer) `merge`
+             [key|array|] ([1,2,3] :: [Integer])
 
 case_arith :: Assertion
 case_arith = do
@@ -148,8 +148,8 @@ case_arith = do
   expected @=? render tmpl (toJSON dict)
   expected @=? render $(haijiFile def "test/arith.tmpl") dict
     where
-      dict = [key|value|] ((-1) :: Int) `merge`
-             [key|array|] ([1,2,3] :: [Int])
+      dict = [key|value|] ((-1) :: Integer) `merge`
+             [key|array|] ([1,2,3] :: [Integer])
 
 case_comparison :: Assertion
 case_comparison = do
@@ -158,8 +158,8 @@ case_comparison = do
   expected @=? render tmpl (toJSON dict)
   expected @=? render $(haijiFile def "test/comparison.tmpl") dict
     where
-      dict = [key|value|] ((1) :: Int) `merge` -- There exists jinja2 bug (https://github.com/pallets/jinja/issues/755)
-             [key|array|] ([1,2,3] :: [Int])
+      dict = [key|value|] ((1) :: Integer) `merge` -- There exists jinja2 bug (https://github.com/pallets/jinja/issues/755)
+             [key|array|] ([1,2,3] :: [Integer])
 
 case_logic :: Assertion
 case_logic = do
@@ -168,8 +168,8 @@ case_logic = do
   expected @=? render tmpl (toJSON dict)
   expected @=? render $(haijiFile def "test/logic.tmpl") dict
     where
-      dict = [key|value|] ((1) :: Int) `merge`
-             [key|array|] ([1,2,3] :: [Int])
+      dict = [key|value|] ((1) :: Integer) `merge`
+             [key|array|] ([1,2,3] :: [Integer])
 
 case_HTML_escape :: Assertion
 case_HTML_escape = do
@@ -178,7 +178,7 @@ case_HTML_escape = do
   expected @=? render tmpl (toJSON dict)
   expected @=? render $(haijiFile def "test/HTML_escape.tmpl") dict
     where
-      dict = [key|foo|] ([' '..'\126'] :: String)
+      dict = [key|foo|] (T.pack [' '..'\126'])
 
 case_condition :: Assertion
 case_condition = forM_ (replicateM 3 [True, False]) $ \[foo, bar, baz] -> do
@@ -197,7 +197,7 @@ case_foreach = do
   expected @=? render tmpl (toJSON dict)
   expected @=? render $(haijiFile def "test/foreach.tmpl") dict
     where
-      dict = [key|foo|] ([0,2..10] :: [Int])
+      dict = [key|foo|] ([0,2..10] :: [Integer])
 
 case_foreach_shadowing :: Assertion
 case_foreach_shadowing = do
@@ -207,8 +207,8 @@ case_foreach_shadowing = do
   expected @=? render $(haijiFile def "test/foreach.tmpl") dict
   False @=? ("bar" `LT.isInfixOf` expected)
     where
-      dict = [key|foo|] ([0,2..10] :: [Int]) `merge`
-             [key|bar|] ("bar" :: String)
+      dict = [key|foo|] ([0,2..10] :: [Integer]) `merge`
+             [key|bar|] ("bar" :: T.Text)
 
 case_foreach_else_block :: Assertion
 case_foreach_else_block = do
@@ -217,12 +217,12 @@ case_foreach_else_block = do
   expected @=? render tmpl (toJSON dict)
   expected @=? render $(haijiFile def "test/foreach_else_block.tmpl") dict
     where
-      dict = [key|foo|] ([] :: [Int])
+      dict = [key|foo|] ([] :: [Integer])
 
 case_include :: Assertion
 case_include = do
-  testInclude ([0..10] :: [Int])
-  testInclude (["","\n","\n\n"] :: [String]) where
+  testInclude ([0..10] :: [Integer])
+  testInclude (["","\n","\n\n"] :: [T.Text]) where
     testInclude xs = do
       expected <- jinja2 "test/include.tmpl" dict
       tmpl <- readTemplateFile def "test/include.tmpl"
@@ -238,8 +238,8 @@ case_raw = do
   expected @=? render tmpl (toJSON dict)
   expected @=? render $(haijiFile def "test/raw.tmpl") dict
     where
-      dict = [key|foo|] ([0,2..10] :: [Int]) `merge`
-             [key|bar|] ("bar" :: String)
+      dict = [key|foo|] ([0,2..10] :: [Integer]) `merge`
+             [key|bar|] ("bar" :: T.Text)
 
 case_loop_variables :: Assertion
 case_loop_variables = do
@@ -297,19 +297,19 @@ case_many_variables = do
   expected @=? render $(haijiFile def "test/many_variables.tmpl") dict
     where
       dict = [key|a|] ("b" :: T.Text) `merge`
-             [key|b|] ("b" :: LT.Text) `merge`
-             [key|c|] ("b" :: LT.Text) `merge`
-             [key|d|] ("b" :: LT.Text) `merge`
-             [key|e|] ("b" :: LT.Text) `merge`
-             [key|f|] ("b" :: LT.Text) `merge`
-             [key|g|] ("b" :: LT.Text) `merge`
-             [key|h|] ("b" :: LT.Text) `merge`
-             [key|i|] ("b" :: LT.Text) `merge`
-             [key|j|] ("b" :: LT.Text) `merge`
-             [key|k|] ("b" :: LT.Text) `merge`
-             [key|l|] ("b" :: LT.Text) `merge`
-             [key|m|] ("b" :: LT.Text) `merge`
-             [key|n|] ("b" :: LT.Text) `merge`
-             [key|o|] ("b" :: LT.Text) `merge`
-             [key|p|] ("b" :: LT.Text) `merge`
-             [key|q|] ("b" :: LT.Text)
+             [key|b|] ("b" :: T.Text) `merge`
+             [key|c|] ("b" :: T.Text) `merge`
+             [key|d|] ("b" :: T.Text) `merge`
+             [key|e|] ("b" :: T.Text) `merge`
+             [key|f|] ("b" :: T.Text) `merge`
+             [key|g|] ("b" :: T.Text) `merge`
+             [key|h|] ("b" :: T.Text) `merge`
+             [key|i|] ("b" :: T.Text) `merge`
+             [key|j|] ("b" :: T.Text) `merge`
+             [key|k|] ("b" :: T.Text) `merge`
+             [key|l|] ("b" :: T.Text) `merge`
+             [key|m|] ("b" :: T.Text) `merge`
+             [key|n|] ("b" :: T.Text) `merge`
+             [key|o|] ("b" :: T.Text) `merge`
+             [key|p|] ("b" :: T.Text) `merge`
+             [key|q|] ("b" :: T.Text)
