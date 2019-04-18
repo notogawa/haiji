@@ -106,6 +106,7 @@ eval (Expression expression) = go expression where
   go :: Expr External level -> Reader JSON.Value JSON.Value
   go (ExprLift e) = go e
   go (ExprIntegerLiteral n) = return $ JSON.Number $ scientific (toEnum n) 0
+  go (ExprStringLiteral s) = return $ JSON.String $ T.pack $ unwrap s
   go (ExprBooleanLiteral b) = return $ JSON.Bool b
   go (ExprVariable v) = either error id . JSON.parseEither (JSON.withObject (show v) (JSON..: (T.pack $ show v))) <$> ask
   go (ExprParen e) = go e
