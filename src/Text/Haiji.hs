@@ -55,6 +55,7 @@ module Text.Haiji
       -- * Dictionary
     , Dict
     , toDict
+    , (:->)
     , empty
       -- ** Builder
     , key
