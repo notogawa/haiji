@@ -27,10 +27,16 @@ before_install:
   # stack
   - mkdir -p ~/.local/bin
   - export PATH=~/.local/bin:$PATH
-  - travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
   - ./latest $RESOLVER > stack-travis.yaml
   - export STACK_YAML=stack-travis.yaml
-  - stack update
+  - |
+    if [ ${RESOLVER/lts-/} -lt 10 ]
+    then
+      travis_retry curl -L https://github.com/commercialhaskell/stack/releases/download/v1.9.1/stack-1.9.1-linux-x86_64.tar.gz | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+    else
+      travis_retry curl -L https://www.stackage.org/stack/linux-x86_64 | tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+      stack update
+    fi
 install:
   - stack --no-terminal --skip-ghc-check setup
   - stack --no-terminal --skip-ghc-check test --only-snapshot
