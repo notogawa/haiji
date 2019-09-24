@@ -14,6 +14,7 @@ matrix:
     - env: RESOLVER=lts-11
     - env: RESOLVER=lts-12
     - env: RESOLVER=lts-13
+    - env: RESOLVER=lts-14
     - env: RESOLVER=nightly
   allow_failures:
     - env: RESOLVER=nightly
