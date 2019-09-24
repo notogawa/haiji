@@ -2,7 +2,7 @@
 --  see http://haskell.org/cabal/users-guide/
 
 name:                haiji
-version:             0.3.0.0
+version:             0.3.1.0
 synopsis:            A typed template engine, subset of jinja2
 description:         Haiji is a template engine which is subset of jinja2.
                      This is designed to free from the unintended rendering result
