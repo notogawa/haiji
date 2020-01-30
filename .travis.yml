@@ -46,7 +46,7 @@ install:
   - stack --no-terminal --skip-ghc-check install stack-hpc-coveralls || true
 
 script:
-  - stack --no-terminal --skip-ghc-check exec -- runghc example.hs
+  - stack --no-terminal --skip-ghc-check runghc example.hs
   - stack --no-terminal --skip-ghc-check test --coverage
   - stack --no-terminal --skip-ghc-check sdist
 
