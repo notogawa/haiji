@@ -13,11 +13,11 @@ import qualified Data.Text.Lazy.IO as LT
 main :: IO ()
 main = LT.putStr
        $ render $(haijiFile def "example.tmpl")
-       $ [key|a_variable|] ("Hello,World!" :: LT.Text) `merge`
+       $ [key|a_variable|] ("Hello,World!" :: T.Text) `merge`
          [key|navigation|] [ [key|caption|] cap `merge` [key|href|] href
                            | (cap, href) <- [ ("A", "content/a.html")
                                             , ("B", "content/b.html")
-                                            ] :: [ (T.Text, String) ]
+                                            ] :: [ (T.Text, T.Text) ]
                            ] `merge`
          [key|foo|] (1 :: Int) `merge`
          [key|bar|] ("" :: String)
