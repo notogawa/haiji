@@ -14,7 +14,8 @@ maintainer:          Noriyuki OHKAWA <n.ohkawa@gmail.com>
 copyright:           Copyright (c) 2014-2019, Noriyuki OHKAWA
 category:            Text
 build-type:          Simple
-extra-source-files:  example.tmpl
+extra-source-files:  example.py
+                     example.tmpl
                      content.tmpl
                      test/HTML_escape.tmpl
                      test/arith.tmpl
