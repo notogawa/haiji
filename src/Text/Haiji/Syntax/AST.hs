@@ -95,10 +95,17 @@ defaultParserState =
   , parserStateInBaseTemplate = True
   }
 
+#if MIN_VERSION_base(4,13,0)
+newtype HaijiParser a =
+  HaijiParser
+  { unHaijiParser :: StateT ParserState Parser a
+  } deriving (Functor, Applicative, Alternative, Monad, MonadState ParserState, MonadFail)
+#else
 newtype HaijiParser a =
   HaijiParser
   { unHaijiParser :: StateT ParserState Parser a
   } deriving (Functor, Applicative, Alternative, Monad, MonadState ParserState)
+#endif
 
 runHaijiParser :: HaijiParser a -> Parser (a, ParserState)
 runHaijiParser p = runStateT (unHaijiParser p) defaultParserState
