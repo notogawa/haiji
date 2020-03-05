@@ -2,8 +2,7 @@
 
 A typed template engine, subset of jinja2
 
-[![Build Status](https://travis-ci.org/notogawa/haiji.svg?branch=master)](https://travis-ci.org/notogawa/haiji)
-[![Coverage Status](https://img.shields.io/coveralls/notogawa/haiji.svg)](https://coveralls.io/r/notogawa/haiji?branch=master)
+![CI](https://github.com/notogawa/haiji/workflows/CI/badge.svg)
 
 Haiji is a template engine which is subset of jinja2.
 This is designed to free from the unintended rendering result
