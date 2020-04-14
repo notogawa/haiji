@@ -44,7 +44,7 @@ You can use a dot to access attributes of a variable.
 #### If
 
 ~~~~
-{% if foo %}true{% else %}false{% endif %}
+{% if foo %}foo{% elif bar %}bar{% else %}baz{% endif %}
 ~~~~
 
 #### For
