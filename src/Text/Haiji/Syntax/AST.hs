@@ -259,19 +259,31 @@ statement f = start "{%" <|> (start "{%-" <* resetLeadingSpaces) where
 -- Right {% if foo %}テスト{% endif %}
 -- >>> exec "    {%- if foo -%}    テスト    {%- endif -%}    "
 -- Right (ParserState {parserStateLeadingSpaces = Nothing, parserStateInBaseTemplate = True})
+-- >>> eval "{% if foo %}テスト{% elif bar %}hoge{% endif %}"
+-- Right {% if foo %}テスト{% else %}{% if bar %}hoge{% endif %}{% endif %}
+-- >>> eval "{% if foo %}  テスト  {% elif bar %}  hoge  {% endif %}"
+-- Right {% if foo %}  テスト  {% else %}{% if bar %}  hoge  {% endif %}{% endif %}
+-- >>> eval "{% if foo -%}  テスト  {%- elif bar -%}  hoge  {%- endif %}"
+-- Right {% if foo %}テスト{% else %}{% if bar %}hoge{% endif %}{% endif %}
 --
 condition :: HaijiParser (AST 'Partially)
-condition = withLeadingSpacesOf start rest where
-  start = statement $ string "if" >> skipMany1 space >> expression
+condition = withLeadingSpacesOf (start "if") rest where
+  start kwd = statement $ string kwd >> skipMany1 space >> expression
   rest cond = do
     ifPart <- haijiParser
-    mElsePart <- mayElse
-    leadingElseSpaces <- getLeadingSpaces
-    _ <- statement $ string "endif"
-    leadingEndIfSpaces <- getLeadingSpaces
-    return $ case mElsePart of
-      Nothing       -> Condition cond (ifPart ++ maybeToList leadingEndIfSpaces) Nothing
-      Just elsePart -> Condition cond (ifPart ++ maybeToList leadingElseSpaces ) (Just $ elsePart ++ maybeToList leadingEndIfSpaces)
+    mElifPart <- option Nothing (Just <$> withLeadingSpacesOf (start "elif") rest)
+    case mElifPart of
+      Just elif -> do
+        leadingElifSpaces <- getLeadingSpaces
+        return $ Condition cond (ifPart ++ maybeToList leadingElifSpaces) (Just [elif])
+      Nothing -> do
+        mElsePart <- mayElse
+        leadingElseSpaces <- getLeadingSpaces
+        _ <- statement $ string "endif"
+        leadingEndIfSpaces <- getLeadingSpaces
+        return $ case mElsePart of
+          Nothing       -> Condition cond (ifPart ++ maybeToList leadingEndIfSpaces) Nothing
+          Just elsePart -> Condition cond (ifPart ++ maybeToList leadingElseSpaces ) (Just $ elsePart ++ maybeToList leadingEndIfSpaces)
 
 mayElse :: HaijiParser (Maybe [AST 'Partially])
 mayElse = option Nothing (Just <$> elseParser) where
