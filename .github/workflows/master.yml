@@ -7,9 +7,14 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    continue-on-error: true
     strategy:
       matrix:
         resolver-version:
+          - 'lts-12'
+          - 'lts-13'
+          - 'lts-14'
+          - 'lts-15'
           - 'lts-16'
           - 'lts-17'
           - 'lts-18'
@@ -19,22 +24,22 @@ jobs:
       STACK_YAML: stack-travis.yaml
     steps:
     - uses: actions/checkout@v2
-    - name: Cache .stack
-      id: cache-stack
-      uses: actions/cache@v1
-      with:
-        path: ~/.stack
-        key: ${{ runner.os }}-stack-${{ matrix.resolver-version }}
-        restore-keys: |
-          ${{ runner.os }}-stack-
-    - name: Cache .local
-      id: cache-local
-      uses: actions/cache@v1
-      with:
-        path: ~/.local
-        key: ${{ runner.os }}-local-${{ matrix.resolver-version }}
-        restore-keys: |
-          ${{ runner.os }}-local-
+    # - name: Cache .stack
+    #   id: cache-stack
+    #   uses: actions/cache@v1
+    #   with:
+    #     path: ~/.stack
+    #     key: ${{ runner.os }}-stack-${{ matrix.resolver-version }}
+    #     restore-keys: |
+    #       ${{ runner.os }}-stack-
+    # - name: Cache .local
+    #   id: cache-local
+    #   uses: actions/cache@v1
+    #   with:
+    #     path: ~/.local
+    #     key: ${{ runner.os }}-local-${{ matrix.resolver-version }}
+    #     restore-keys: |
+    #       ${{ runner.os }}-local-
     # - uses: actions/setup-haskell@v1
     #   with:
     #     ghc-version: '8.8.2'
