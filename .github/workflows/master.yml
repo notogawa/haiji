@@ -19,6 +19,8 @@ jobs:
           - 'lts-18'
           - 'lts-19'
           - 'nightly'
+    env:
+      STACK_YAML: stack-travis.yaml
     steps:
     - uses: actions/checkout@v2
     - name: Cache .stack
@@ -47,11 +49,14 @@ jobs:
         export PATH=~/.local/bin:$PATH
         export RESOLVER=${{ matrix.resolver-version }}
         ./latest $RESOLVER > stack-travis.yaml
-        export STACK_YAML=stack-travis.yaml
         curl -L https://www.stackage.org/stack/linux-x86_64 | \
         tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
         stack update
         stack --no-terminal --skip-ghc-check setup
+    - name: Debug info
+      run: |
+        echo $RESOLVER
+        cat $STACK_YAML
     - name: Install deps
       run: |
         stack --no-terminal --skip-ghc-check test --only-snapshot
