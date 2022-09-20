@@ -91,6 +91,9 @@ test-suite doctests
   hs-source-dirs:      test
   ghc-options:         -Wall -threaded
   default-language:    Haskell2010
+  -- Skip doctest for GHC 9. https://github.com/sol/doctest/issues/327
+  if impl(ghc >= 9.0) && impl(ghc < 9.3)
+    buildable: False
 
 test-suite tests
   type:                exitcode-stdio-1.0
