@@ -24,22 +24,22 @@ jobs:
       STACK_YAML: stack-travis.yaml
     steps:
     - uses: actions/checkout@v2
-    # - name: Cache .stack
-    #   id: cache-stack
-    #   uses: actions/cache@v1
-    #   with:
-    #     path: ~/.stack
-    #     key: ${{ runner.os }}-stack-${{ matrix.resolver-version }}
-    #     restore-keys: |
-    #       ${{ runner.os }}-stack-
-    # - name: Cache .local
-    #   id: cache-local
-    #   uses: actions/cache@v1
-    #   with:
-    #     path: ~/.local
-    #     key: ${{ runner.os }}-local-${{ matrix.resolver-version }}
-    #     restore-keys: |
-    #       ${{ runner.os }}-local-
+    - name: Setup stack-travis.yaml
+      run: |
+        export RESOLVER=${{ matrix.resolver-version }}
+        ./latest $RESOLVER > stack-travis.yaml
+    - name: Cache .stack
+      id: cache-stack
+      uses: actions/cache@v3
+      with:
+        path: ~/.stack
+        key: ${{ runner.os }}-stack-${{ hashFiles('stack-travis.yaml') }}
+    - name: Cache .local
+      id: cache-local
+      uses: actions/cache@v3
+      with:
+        path: ~/.local
+        key: ${{ runner.os }}-local-${{ hashFiles('stack-travis.yaml') }}
     # - uses: actions/setup-haskell@v1
     #   with:
     #     ghc-version: '8.8.2'
@@ -48,16 +48,10 @@ jobs:
       run: |
         mkdir -p ~/.local/bin
         export PATH=~/.local/bin:$PATH
-        export RESOLVER=${{ matrix.resolver-version }}
-        ./latest $RESOLVER > stack-travis.yaml
         curl -L https://www.stackage.org/stack/linux-x86_64 | \
         tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
         stack update
         stack --no-terminal --skip-ghc-check setup
-    - name: Debug info
-      run: |
-        echo $RESOLVER
-        cat $STACK_YAML
     - name: Install deps
       run: |
         stack --no-terminal --skip-ghc-check test --only-snapshot
