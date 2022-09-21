@@ -65,6 +65,7 @@ library
                        Text.Haiji.Syntax.Expression
                        Text.Haiji.Syntax.Literal
                        Text.Haiji.Syntax.Literal.String
+                       Text.Haiji.Utils
   build-depends:       base >=4.7 && <5
                      , text
                      , attoparsec >=0.10

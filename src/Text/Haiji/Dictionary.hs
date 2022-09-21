@@ -26,7 +26,6 @@ import Data.Maybe
 #else
 import Data.Monoid
 #endif
-import Data.String (fromString)
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Encoding as LT
 import Data.Type.Bool
@@ -38,6 +37,7 @@ import Data.Kind
 #define STAR *
 #endif
 import GHC.TypeLits
+import Text.Haiji.Utils (toKey)
 
 data Key (k :: Symbol) where
   Key :: KnownSymbol k => Key k
@@ -74,7 +74,7 @@ instance ToJSON (Dict '[]) where
 instance (ToJSON (Dict d), ToJSON v, KnownSymbol k, Typeable v) => ToJSON (Dict ((k :-> v) ': d)) where
   toJSON dict = Object (a <> b) where
     (x, v, xs) = headKV dict
-    Object a = object [ fromString (keyVal x) .= v ]
+    Object a = object [ toKey (keyVal x) .= v ]
     Object b = toJSON xs
     headKV :: (KnownSymbol k, Typeable v) => Dict ((k :-> v) ': d) -> (Key k, v, Dict d)
     headKV (Dict d) = (k, fromJust $ fromDynamic $ d M.! keyVal k, Dict $ M.delete (keyVal k) d) where
