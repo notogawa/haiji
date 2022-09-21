@@ -71,8 +71,8 @@ haijiAST  env  parentBlock  children (Foreach k xs loopBody elseBody) =
               [ runReader (haijiASTs env parentBlock children loopBody)
                           (let JSON.Object obj = p
                            in  JSON.Object
-                               $ insert_ "loop" (loopVariables len ix)
-                               $ insert_ (toKey $ show k) x obj)
+                               $ insertValue "loop" (loopVariables len ix)
+                               $ insertValue (toKey $ show k) x obj)
               | (ix, x) <- zip [0..] (V.toList dicts)
               ]
          else maybe (return "") (haijiASTs env parentBlock children) elseBody
@@ -89,7 +89,7 @@ haijiAST  env  parentBlock  children (Set lhs rhs scopes) =
   do val <- eval rhs
      p <- ask
      return $ runReader (haijiASTs env parentBlock children scopes)
-       (let JSON.Object obj = p in  JSON.Object $ insert_ (toKey $ show lhs) val obj)
+       (let JSON.Object obj = p in  JSON.Object $ insertValue (toKey $ show lhs) val obj)
 
 loopVariables :: Integer -> Integer -> JSON.Value
 loopVariables len ix = JSON.object [ "first"     JSON..= (ix == 0)

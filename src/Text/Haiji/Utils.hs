@@ -10,8 +10,8 @@ import qualified Data.Aeson.KeyMap as JSON
 toKey :: String -> JSON.Key
 toKey = fromString
 
-insert_ :: JSON.Key -> JSON.Value -> JSON.KeyMap JSON.Value -> JSON.KeyMap JSON.Value
-insert_ = JSON.insert
+insertValue :: JSON.Key -> JSON.Value -> JSON.KeyMap JSON.Value -> JSON.KeyMap JSON.Value
+insertValue = JSON.insert
 
 #else
 import qualified Data.Text as T
@@ -20,8 +20,8 @@ import qualified Data.HashMap.Strict as HM
 toKey :: String -> T.Text
 toKey = T.pack
 
-insert_ :: T.Text -> JSON.Value -> HM.HashMap T.Text JSON.Value -> HM.HashMap T.Text JSON.Value
-insert_ = HM.insert
+insertValue :: T.Text -> JSON.Value -> HM.HashMap T.Text JSON.Value -> HM.HashMap T.Text JSON.Value
+insertValue = HM.insert
 #endif
 
 
