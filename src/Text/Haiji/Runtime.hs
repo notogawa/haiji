@@ -22,7 +22,6 @@ import Control.Monad.Trans.Reader
 import qualified Data.Aeson as JSON
 import qualified Data.Aeson.Types as JSON
 import Data.Maybe
-import qualified Data.HashMap.Strict as HM
 import Data.Scientific
 import qualified Data.Text as T
 import qualified Data.Text.Lazy as LT
@@ -30,6 +29,7 @@ import qualified Data.Vector as V
 import Text.Haiji.Parse
 import Text.Haiji.Syntax
 import Text.Haiji.Types
+import Text.Haiji.Utils
 
 -- | Dynamically template loader (for template development use)
 readTemplateFile :: Environment -> FilePath -> IO (Template JSON.Value)
@@ -71,8 +71,8 @@ haijiAST  env  parentBlock  children (Foreach k xs loopBody elseBody) =
               [ runReader (haijiASTs env parentBlock children loopBody)
                           (let JSON.Object obj = p
                            in  JSON.Object
-                               $ HM.insert "loop" (loopVariables len ix)
-                               $ HM.insert (T.pack $ show k) x obj)
+                               $ insertValue "loop" (loopVariables len ix)
+                               $ insertValue (toKey $ show k) x obj)
               | (ix, x) <- zip [0..] (V.toList dicts)
               ]
          else maybe (return "") (haijiASTs env parentBlock children) elseBody
@@ -89,7 +89,7 @@ haijiAST  env  parentBlock  children (Set lhs rhs scopes) =
   do val <- eval rhs
      p <- ask
      return $ runReader (haijiASTs env parentBlock children scopes)
-       (let JSON.Object obj = p in  JSON.Object $ HM.insert (T.pack $ show lhs) val obj)
+       (let JSON.Object obj = p in  JSON.Object $ insertValue (toKey $ show lhs) val obj)
 
 loopVariables :: Integer -> Integer -> JSON.Value
 loopVariables len ix = JSON.object [ "first"     JSON..= (ix == 0)
@@ -108,7 +108,7 @@ eval (Expression expression) = go expression where
   go (ExprIntegerLiteral n) = return $ JSON.Number $ scientific n 0
   go (ExprStringLiteral s) = return $ JSON.String $ T.pack $ unwrap s
   go (ExprBooleanLiteral b) = return $ JSON.Bool b
-  go (ExprVariable v) = either error id . JSON.parseEither (JSON.withObject (show v) (JSON..: (T.pack $ show v))) <$> ask
+  go (ExprVariable v) = either error id . JSON.parseEither (JSON.withObject (show v) (JSON..: (toKey $ show v))) <$> ask
   go (ExprParen e) = go e
   go (ExprRange [stop]) = do
     sstop <- either error id . JSON.parseEither (JSON.withScientific "range" return) <$> go stop
@@ -130,7 +130,7 @@ eval (Expression expression) = go expression where
       _             -> error "range"
   go (ExprRange _) = error "unreachable"
   go (ExprAttributed e []) = go e
-  go (ExprAttributed e attrs) = either error id . JSON.parseEither (JSON.withObject (show $ last attrs) (JSON..: (T.pack $ show $ last attrs))) <$> go (ExprAttributed e $ init attrs)
+  go (ExprAttributed e attrs) = either error id . JSON.parseEither (JSON.withObject (show $ last attrs) (JSON..: (toKey $ show $ last attrs))) <$> go (ExprAttributed e $ init attrs)
   go (ExprFiltered e []) = go e
   go (ExprFiltered e filters) = applyFilter (last filters) $ ExprFiltered e $ init filters where
     applyFilter FilterAbs e' = either error id . JSON.parseEither (JSON.withScientific "abs" (return . JSON.Number . abs)) <$> go e'

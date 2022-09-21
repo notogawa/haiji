@@ -7,40 +7,39 @@ jobs:
   build:
 
     runs-on: ubuntu-latest
+    continue-on-error: true
     strategy:
       matrix:
         resolver-version:
-          - 'lts-4'
-          - 'lts-5'
-          - 'lts-6'
-          - 'lts-7'
-          - 'lts-8'
-          - 'lts-9'
-          - 'lts-10'
-          - 'lts-11'
           - 'lts-12'
           - 'lts-13'
           - 'lts-14'
           - 'lts-15'
+          - 'lts-16'
+          - 'lts-17'
+          - 'lts-18'
+          - 'lts-19'
           - 'nightly'
+    env:
+      STACK_YAML: stack-travis.yaml
     steps:
     - uses: actions/checkout@v2
+    - name: Setup stack-travis.yaml
+      run: |
+        export RESOLVER=${{ matrix.resolver-version }}
+        ./latest $RESOLVER > stack-travis.yaml
     - name: Cache .stack
       id: cache-stack
-      uses: actions/cache@v1
+      uses: actions/cache@v3
       with:
         path: ~/.stack
-        key: ${{ runner.os }}-stack-${{ matrix.resolver-version }}
-        restore-keys: |
-          ${{ runner.os }}-stack-
+        key: ${{ runner.os }}-stack-${{ hashFiles('stack-travis.yaml') }}
     - name: Cache .local
       id: cache-local
-      uses: actions/cache@v1
+      uses: actions/cache@v3
       with:
         path: ~/.local
-        key: ${{ runner.os }}-local-${{ matrix.resolver-version }}
-        restore-keys: |
-          ${{ runner.os }}-local-
+        key: ${{ runner.os }}-local-${{ hashFiles('stack-travis.yaml') }}
     # - uses: actions/setup-haskell@v1
     #   with:
     #     ghc-version: '8.8.2'
@@ -49,18 +48,9 @@ jobs:
       run: |
         mkdir -p ~/.local/bin
         export PATH=~/.local/bin:$PATH
-        export RESOLVER=${{ matrix.resolver-version }}
-        ./latest $RESOLVER > stack-travis.yaml
-        export STACK_YAML=stack-travis.yaml
-        if [ ${RESOLVER/lts-/} -lt 10 ]
-        then
-          curl -L https://github.com/commercialhaskell/stack/releases/download/v1.9.1/stack-1.9.1-linux-x86_64.tar.gz | \
-          tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-        else
-          curl -L https://www.stackage.org/stack/linux-x86_64 | \
-          tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
-          stack update
-        fi
+        curl -L https://www.stackage.org/stack/linux-x86_64 | \
+        tar xz --wildcards --strip-components=1 -C ~/.local/bin '*/stack'
+        stack update
         stack --no-terminal --skip-ghc-check setup
     - name: Install deps
       run: |
