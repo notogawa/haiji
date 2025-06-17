@@ -19,11 +19,21 @@ jobs:
           - 'lts-17'
           - 'lts-18'
           - 'lts-19'
+          - 'lts-20'
+          - 'lts-21'
+          - 'lts-22'
+          - 'lts-23'
           - 'nightly'
     env:
       STACK_YAML: stack-travis.yaml
     steps:
     - uses: actions/checkout@v2
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v4
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: "pyproject.toml"
     - name: Setup stack-travis.yaml
       run: |
         export RESOLVER=${{ matrix.resolver-version }}
@@ -70,5 +80,5 @@ jobs:
         stack --no-terminal --skip-ghc-check sdist
     - uses: actions/upload-artifact@master
       with:
-        name: coverage
+        name: coverage-${{ matrix.resolver-version }}
         path: hpc

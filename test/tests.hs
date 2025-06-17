@@ -34,7 +34,7 @@ main = $(defaultMainGenerator)
 
 jinja2 :: Show a => FilePath -> a -> IO LT.Text
 jinja2 template dict = do
-  (code, out, err) <- readProcessWithExitCode "python3" [] script
+  (code, out, err) <- readProcessWithExitCode "uv" ["run", "python3"] script
   unless (code == ExitSuccess) $ LT.putStrLn err
   return out where
     script = LT.unlines
