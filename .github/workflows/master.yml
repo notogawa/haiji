@@ -28,6 +28,12 @@ jobs:
       STACK_YAML: stack-travis.yaml
     steps:
     - uses: actions/checkout@v2
+    - name: Setup uv
+      uses: astral-sh/setup-uv@v4
+    - name: Setup Python
+      uses: actions/setup-python@v5
+      with:
+        python-version-file: "pyproject.toml"
     - name: Setup stack-travis.yaml
       run: |
         export RESOLVER=${{ matrix.resolver-version }}
