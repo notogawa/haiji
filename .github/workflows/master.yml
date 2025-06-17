@@ -19,6 +19,10 @@ jobs:
           - 'lts-17'
           - 'lts-18'
           - 'lts-19'
+          - 'lts-20'
+          - 'lts-21'
+          - 'lts-22'
+          - 'lts-23'
           - 'nightly'
     env:
       STACK_YAML: stack-travis.yaml
