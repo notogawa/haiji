@@ -65,7 +65,7 @@ library
                        Text.Haiji.Syntax.Literal
                        Text.Haiji.Syntax.Literal.String
                        Text.Haiji.Utils
-  build-depends:       base >=4.7 && <5
+  build-depends:       base >=4.19 && <5
                      , text
                      , attoparsec >=0.10
                      , template-haskell >=2.8
@@ -84,7 +84,7 @@ library
 test-suite doctests
   type:                exitcode-stdio-1.0
   main-is:             doctests.hs
-  build-depends:       base
+  build-depends:       base >=4.19 && <5
                      , doctest
                      , filepath
   hs-source-dirs:      test
@@ -97,7 +97,7 @@ test-suite doctests
 test-suite tests
   type:                exitcode-stdio-1.0
   main-is:             tests.hs
-  build-depends:       base
+  build-depends:       base >=4.19 && <5
                      , aeson
                      , haiji
                      , tasty
