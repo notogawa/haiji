@@ -80,5 +80,5 @@ jobs:
         stack --no-terminal --skip-ghc-check sdist
     - uses: actions/upload-artifact@master
       with:
-        name: coverage
+        name: coverage-${{ matrix.resolver-version }}
         path: hpc
