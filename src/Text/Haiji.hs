@@ -52,19 +52,10 @@ module Text.Haiji
       -- * Rendering Environment
     , Environment
     , autoEscape
-      -- * Dictionary
-    , Dict
-    , toDict
-    , (:->)
-    , empty
-      -- ** Builder
-    , key
-    , merge
     ) where
 
 import Text.Haiji.TH
 import Text.Haiji.Types
-import Text.Haiji.Dictionary
 
 -- $template
 -- >{{ foo }}
